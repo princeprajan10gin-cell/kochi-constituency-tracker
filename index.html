@@ -1,0 +1,3054 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Kochi Constituency Tracker</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+
+  <!-- ═══════════════════════════════════════════════════════════
+       FIREBASE SDK — loads Google Sign-In capability
+       ═══════════════════════════════════════════════════════ -->
+  <!-- Firebase + gapi loaded at bottom of body -->
+
+  <style>
+    /* ── RESET & BASE ─────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --navy:     #0F2C54;
+      --navy-mid: #1A3F6F;
+      --saffron:  #E8820C;
+      --saffron-d:#C9720A;
+      --ivory:    #FAFAF7;
+      --green:    #2D7A4F;
+      --red:      #C0392B;
+      --muted:    #6B7280;
+      --border:   #E5E3DC;
+      --bg:       #F4F2EC;
+      --card:     #FFFFFF;
+      --text:     #1C1B19;
+      --text2:    #5A5854;
+      --radius:   8px;
+      --shadow:   0 1px 3px rgba(0,0,0,0.08);
+    }
+
+    html, body { height: 100%; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); font-size: 14px; }
+
+    /* ── LOGIN SCREEN ─────────────────────────────────────── */
+    #login-screen {
+      display: flex; align-items: center; justify-content: center;
+      position: fixed; inset: 0; background: var(--navy); z-index: 9999;
+    }
+    .login-card {
+      background: #fff; border-radius: 16px; padding: 44px 36px;
+      text-align: center; width: 320px; box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    }
+    .login-emblem {
+      width: 56px; height: 56px; background: var(--navy); border-radius: 14px;
+      margin: 0 auto 20px; display: flex; align-items: center; justify-content: center;
+    }
+    .login-emblem i { font-size: 28px; color: var(--saffron); }
+    .login-title { font-size: 18px; font-weight: 600; color: var(--navy); margin-bottom: 4px; }
+    .login-sub { font-size: 12px; color: var(--muted); margin-bottom: 28px; line-height: 1.5; }
+    .login-btn {
+      width: 100%; padding: 12px; border-radius: var(--radius); border: none;
+      background: var(--saffron); color: #fff; font-size: 14px; font-weight: 500;
+      cursor: pointer; display: flex; align-items: center; justify-content: center;
+      gap: 8px; transition: background 0.15s;
+    }
+    .login-btn:hover { background: var(--saffron-d); }
+    #login-error {
+      display: none; margin-top: 12px; font-size: 11px; color: var(--red);
+      background: #FCEBEB; padding: 8px 10px; border-radius: 6px;
+    }
+    .login-footer { margin-top: 20px; font-size: 10px; color: #B0ADA6; }
+
+    /* ── APP SHELL ────────────────────────────────────────── */
+    #app { display: none; height: 100vh; flex-direction: column; }
+
+    /* ── BANNERS ──────────────────────────────────────────── */
+    .banner {
+      display: none; padding: 8px 20px; font-size: 12px;
+      align-items: center; gap: 8px; flex-shrink: 0;
+    }
+    #offline-banner { background: #FAEEDA; color: #633806; }
+    #sync-banner    { background: #EAF3DE; color: #27500A; }
+
+    /* ── MAIN LAYOUT ──────────────────────────────────────── */
+    .shell { display: flex; flex: 1; overflow: hidden; }
+
+    /* ── SIDEBAR ──────────────────────────────────────────── */
+    .sidebar {
+      width: 210px; background: var(--navy); display: flex;
+      flex-direction: column; flex-shrink: 0;
+    }
+    .sidebar-logo {
+      padding: 18px 16px 14px; border-bottom: 1px solid rgba(255,255,255,0.08);
+    }
+    .sidebar-logo-title { color: #fff; font-size: 13px; font-weight: 600; line-height: 1.3; }
+    .sidebar-logo-sub   { color: rgba(255,255,255,0.45); font-size: 10px; margin-top: 2px; }
+
+    .sidebar-nav { padding: 10px 8px; flex: 1; }
+    .nav-section { font-size: 9px; font-weight: 600; color: rgba(255,255,255,0.3);
+      text-transform: uppercase; letter-spacing: 0.08em; padding: 12px 8px 4px; }
+
+    .nav-item {
+      display: flex; align-items: center; gap: 10px;
+      padding: 9px 10px; border-radius: 6px;
+      color: rgba(255,255,255,0.6); font-size: 12.5px; cursor: pointer;
+      transition: background 0.12s, color 0.12s; margin-bottom: 1px;
+      border: none; background: none; width: 100%; text-align: left;
+    }
+    .nav-item:hover  { background: rgba(255,255,255,0.07); color: #fff; }
+    .nav-item.active { background: rgba(232,130,12,0.2); color: #F5A84E;
+      border-right: 2px solid var(--saffron); }
+    .nav-item i { font-size: 17px; flex-shrink: 0; }
+
+    .sidebar-footer {
+      padding: 12px 16px; border-top: 1px solid rgba(255,255,255,0.08);
+    }
+    .user-pill {
+      display: flex; align-items: center; gap: 8px;
+    }
+    .user-avatar {
+      width: 30px; height: 30px; border-radius: 50%; background: rgba(232,130,12,0.25);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 11px; font-weight: 600; color: #F5A84E; flex-shrink: 0;
+    }
+    .user-name  { font-size: 11px; color: rgba(255,255,255,0.8); font-weight: 500;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100px; }
+    .user-role  { font-size: 9px; color: rgba(255,255,255,0.4); margin-top: 1px; }
+    .signout-btn {
+      margin-left: auto; background: none; border: none; cursor: pointer;
+      color: rgba(255,255,255,0.4); font-size: 16px; padding: 2px;
+      transition: color 0.12s; flex-shrink: 0;
+    }
+    .signout-btn:hover { color: rgba(255,255,255,0.8); }
+
+    /* ── MAIN CONTENT ─────────────────────────────────────── */
+    .main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+
+    .topbar {
+      background: var(--card); border-bottom: 1px solid var(--border);
+      padding: 12px 20px; display: flex; align-items: center;
+      justify-content: space-between; flex-shrink: 0;
+      box-shadow: var(--shadow);
+    }
+    .topbar-title { font-size: 15px; font-weight: 600; color: var(--text); }
+    .topbar-sub   { font-size: 11px; color: var(--muted); margin-top: 1px; }
+    .topbar-actions { display: flex; gap: 8px; align-items: center; }
+
+    .content { flex: 1; overflow-y: auto; padding: 20px; }
+
+    /* ── BUTTONS ──────────────────────────────────────────── */
+    .btn {
+      display: inline-flex; align-items: center; gap: 5px;
+      padding: 7px 13px; border-radius: var(--radius);
+      border: 1px solid var(--border); background: var(--card);
+      color: var(--text); font-size: 12px; cursor: pointer;
+      transition: background 0.12s; font-family: inherit;
+    }
+    .btn:hover { background: var(--bg); }
+    .btn-primary { background: var(--saffron); color: #fff; border-color: var(--saffron); }
+    .btn-primary:hover { background: var(--saffron-d); border-color: var(--saffron-d); }
+    .btn-sm { padding: 5px 10px; font-size: 11px; }
+    .btn-danger { background: #FCEBEB; color: var(--red); border-color: #F5C6C6; }
+
+    /* ── PAGES ────────────────────────────────────────────── */
+    .page { display: none; }
+    .page.active { display: block; }
+
+    /* ── STAT GRID ────────────────────────────────────────── */
+    .stat-grid { display: grid; grid-template-columns: repeat(6,1fr); gap: 10px; margin-bottom: 18px; }
+    .stat-card {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 14px 16px;
+      box-shadow: var(--shadow); transition: box-shadow 0.15s, transform 0.1s;
+    }
+    .stat-card:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.12); transform: translateY(-1px); }
+    .stat-label { font-size: 11px; color: var(--muted); margin-bottom: 6px;
+      text-transform: uppercase; letter-spacing: 0.04em; font-weight: 500; }
+    .stat-val   { font-size: 28px; font-weight: 600; color: var(--text); line-height: 1; }
+    .stat-tag   { display: inline-block; font-size: 10px; padding: 2px 7px;
+      border-radius: 10px; margin-top: 6px; }
+
+    /* ── CHARTS ROW ───────────────────────────────────────── */
+    .charts-row { display: grid; grid-template-columns: 1.2fr 0.8fr; gap: 12px; margin-bottom: 14px; }
+    .chart-card {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 16px; box-shadow: var(--shadow);
+    }
+    .chart-card h3 {
+      font-size: 11px; font-weight: 600; color: var(--muted);
+      text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 12px;
+    }
+
+    /* ── PROGRESS BARS ────────────────────────────────────── */
+    .prog-wrap { margin-bottom: 10px; }
+    .prog-hd   { display: flex; justify-content: space-between; font-size: 11px;
+      color: var(--text2); margin-bottom: 4px; }
+    .prog-hd span:last-child { font-weight: 600; color: var(--text); }
+    .prog-track { height: 6px; background: var(--bg); border-radius: 3px; overflow: hidden; }
+    .prog-bar   { height: 100%; border-radius: 3px; transition: width 0.6s ease; }
+
+    /* ── TABLE ────────────────────────────────────────────── */
+    .section-hd { display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 10px; }
+    .section-hd h2 { font-size: 13px; font-weight: 600; color: var(--text); }
+
+    .table-wrap { background: var(--card); border: 1px solid var(--border);
+      border-radius: var(--radius); overflow: hidden; box-shadow: var(--shadow); }
+    .app-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    .app-table th {
+      text-align: left; padding: 9px 12px; background: #F7F5F0;
+      color: var(--muted); font-weight: 600; border-bottom: 1px solid var(--border);
+      font-size: 10px; text-transform: uppercase; letter-spacing: 0.04em;
+    }
+    .app-table td { padding: 10px 12px; border-bottom: 1px solid #F0EEE8;
+      color: var(--text); vertical-align: middle; }
+    .app-table tr:last-child td { border-bottom: none; }
+    .app-table tr:hover td { background: #FAFAF5; cursor: pointer; }
+
+    /* ── BADGES ───────────────────────────────────────────── */
+    .badge {
+      display: inline-flex; align-items: center; padding: 2px 8px;
+      border-radius: 10px; font-size: 10px; font-weight: 600; white-space: nowrap;
+    }
+    .lv-mun   { background: #E6F1FB; color: #0C447C; }
+    .lv-dist  { background: #FAEEDA; color: #633806; }
+    .lv-offi  { background: #EEEDFE; color: #3C3489; }
+    .lv-state { background: #EAF3DE; color: #27500A; }
+    .st-open  { background: #FAEEDA; color: #633806; }
+    .st-wip   { background: #E6F1FB; color: #0C447C; }
+    .st-done  { background: #EAF3DE; color: #27500A; }
+    .st-esc   { background: #FCEBEB; color: #791F1F; }
+    .pr-norm  { background: #F1EFE8; color: #555350; }
+    .pr-high  { background: #FFF3E0; color: #8B5000; }
+    .pr-urg   { background: #FCEBEB; color: #791F1F; }
+
+    /* ── FILTERS ──────────────────────────────────────────── */
+    .filter-row { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; align-items: center; }
+    .filter-row input, .filter-row select {
+      font-size: 12px; padding: 6px 10px; border: 1px solid var(--border);
+      border-radius: var(--radius); background: var(--card); color: var(--text);
+      font-family: inherit;
+    }
+    .filter-row input { min-width: 200px; }
+
+    /* ── FORM ─────────────────────────────────────────────── */
+    .form-card { background: var(--card); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 24px; max-width: 720px; box-shadow: var(--shadow); }
+    .form-card h2 { font-size: 14px; font-weight: 600; margin-bottom: 20px; color: var(--text); }
+    .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 18px; }
+    .form-group { display: flex; flex-direction: column; gap: 5px; }
+    .form-group.full { grid-column: 1 / -1; }
+    .form-group label {
+      font-size: 10px; font-weight: 600; color: var(--muted);
+      text-transform: uppercase; letter-spacing: 0.05em;
+    }
+    .form-group input, .form-group select, .form-group textarea {
+      font-size: 13px; padding: 8px 10px; border-radius: var(--radius);
+      border: 1px solid var(--border); background: var(--card); color: var(--text);
+      font-family: inherit; transition: border-color 0.12s;
+    }
+    .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
+      outline: none; border-color: var(--saffron);
+    }
+    .form-group textarea { resize: vertical; min-height: 80px; }
+
+    /* ── UPLOAD ZONE ──────────────────────────────────────── */
+    .upload-zone {
+      border: 1.5px dashed var(--border); border-radius: var(--radius);
+      padding: 18px; text-align: center; cursor: pointer;
+      transition: background 0.12s, border-color 0.12s; background: #FAFAF7;
+    }
+    .upload-zone:hover { background: #F0EEE8; border-color: var(--saffron); }
+    .upload-zone i { font-size: 24px; color: var(--muted); display: block; margin-bottom: 6px; }
+    .upload-zone p { font-size: 11px; color: var(--muted); }
+    .upload-zone .file-name { font-size: 11px; color: var(--green); margin-top: 4px; font-weight: 500; }
+
+    /* ── PEOPLE GRID ──────────────────────────────────────── */
+    .ppl-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px,1fr)); gap: 10px; }
+    .ppl-card {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 14px; cursor: pointer;
+      transition: box-shadow 0.12s; box-shadow: var(--shadow);
+    }
+    .ppl-card:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+    .ppl-avatar {
+      width: 38px; height: 38px; border-radius: 50%; background: #E6F1FB;
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 700; font-size: 13px; color: #0C447C; margin-bottom: 10px;
+    }
+    .ppl-name { font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 2px; }
+    .ppl-sub  { font-size: 11px; color: var(--muted); display: flex; align-items: center; gap: 4px; }
+    .ppl-apps { font-size: 10px; color: var(--saffron); margin-top: 6px; font-weight: 500; }
+
+    /* ── MODAL ────────────────────────────────────────────── */
+    .modal-bg {
+      display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.4);
+      z-index: 500; align-items: center; justify-content: center;
+    }
+    .modal-bg.open { display: flex; }
+    .modal {
+      background: var(--card); border-radius: 12px; width: 94%; max-width: 580px;
+      max-height: 85vh; overflow-y: auto; box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+    }
+    .modal-hd {
+      padding: 16px 20px; border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between;
+      position: sticky; top: 0; background: var(--card); z-index: 1;
+    }
+    .modal-hd h2 { font-size: 14px; font-weight: 600; color: var(--text); }
+    .modal-body  { padding: 18px 20px; }
+
+    .detail-row {
+      display: grid; grid-template-columns: 140px 1fr; gap: 8px;
+      padding: 9px 0; border-bottom: 1px solid #F0EEE8; font-size: 12px;
+    }
+    .detail-row:last-child { border-bottom: none; }
+    .detail-label { color: var(--muted); font-weight: 500; }
+    .detail-val   { color: var(--text); }
+    .file-pill {
+      display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px;
+      border: 1px solid var(--border); border-radius: 6px; font-size: 11px;
+      color: var(--text2); background: var(--bg);
+    }
+    .modal-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border); }
+
+    /* ── TOAST ────────────────────────────────────────────── */
+    .toast {
+      position: fixed; bottom: 20px; right: 20px; padding: 10px 16px;
+      border-radius: var(--radius); font-size: 12px; font-weight: 500;
+      z-index: 9000; opacity: 0; transform: translateY(8px);
+      transition: opacity 0.25s, transform 0.25s; pointer-events: none;
+      display: flex; align-items: center; gap: 7px; box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+    }
+    .toast.show { opacity: 1; transform: translateY(0); }
+    .toast-ok  { background: var(--green); color: #fff; }
+    .toast-err { background: var(--red);   color: #fff; }
+
+    /* ── EMPTY STATE ──────────────────────────────────────── */
+    .empty {
+      text-align: center; padding: 48px 20px; color: var(--muted);
+    }
+    .empty i { font-size: 40px; display: block; margin-bottom: 10px; opacity: 0.4; }
+    .empty p { font-size: 13px; }
+
+    /* ── LOADING ──────────────────────────────────────────── */
+    .loading-row td { text-align: center; padding: 32px; color: var(--muted); font-size: 12px; }
+
+    /* ── EDIT MODAL ───────────────────────────────────────── */
+    .edit-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:14px; }
+    .edit-group { display:flex; flex-direction:column; gap:4px; }
+    .edit-group.full { grid-column:1/-1; }
+    .edit-group label { font-size:10px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.05em; }
+    .edit-group input,.edit-group select,.edit-group textarea {
+      font-size:12px;padding:7px 9px;border:1px solid var(--border);
+      border-radius:var(--radius);background:var(--card);color:var(--text);font-family:inherit;
+    }
+    .edit-group textarea { resize:vertical;min-height:60px; }
+
+    /* ── TIMER / FOLLOW-UP ─────────────────────────────── */
+    .timer-badge {
+      display:inline-flex;align-items:center;gap:4px;padding:2px 8px;
+      border-radius:10px;font-size:10px;font-weight:600;
+    }
+    .timer-ok      { background:#EAF3DE;color:#27500A; }
+    .timer-soon    { background:#FFF3E0;color:#8B5000; }
+    .timer-overdue { background:#FCEBEB;color:#791F1F; }
+
+    .alert-banner {
+      background:#FCEBEB;border:1px solid #F5C6C6;border-radius:var(--radius);
+      padding:12px 16px;margin-bottom:14px;
+    }
+    .alert-banner h3 { font-size:12px;font-weight:600;color:var(--red);margin-bottom:8px;
+      display:flex;align-items:center;gap:6px; }
+    .alert-item {
+      display:flex;align-items:center;gap:10px;padding:6px 0;
+      border-bottom:1px solid #F5C6C6;font-size:11px;cursor:pointer;
+    }
+    .alert-item:last-child { border-bottom:none; }
+    .alert-item:hover { color:var(--red); }
+
+    /* ── SCHEDULE ────────────────────────────────────────── */
+    .sched-event {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 12px 16px;
+      margin-bottom: 8px; display: flex; gap: 14px;
+      box-shadow: var(--shadow); transition: box-shadow 0.15s;
+    }
+    .sched-event:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+    .sched-time-col { flex-shrink:0; width:64px; text-align:center; }
+    .sched-time { font-size:13px; font-weight:600; color:var(--text); }
+    .sched-end  { font-size:10px; color:var(--muted); margin-top:2px; }
+    .sched-bar  { width:3px; border-radius:2px; flex-shrink:0; }
+    .sched-body { flex:1; }
+    .sched-title { font-size:13px; font-weight:600; color:var(--text); margin-bottom:3px; }
+    .sched-meta  { font-size:11px; color:var(--muted); display:flex; gap:10px; flex-wrap:wrap; }
+    .sched-meta i { font-size:12px; }
+    .sched-type-badge {
+      display:inline-flex;align-items:center;gap:3px;padding:1px 7px;
+      border-radius:8px;font-size:10px;font-weight:500;
+    }
+    .type-meeting  { background:#E6F1FB;color:#0C447C; }
+    .type-visit    { background:#EAF3DE;color:#27500A; }
+    .type-assembly { background:#EEEDFE;color:#3C3489; }
+    .type-office   { background:#FAEEDA;color:#633806; }
+    .type-personal { background:#F1EFE8;color:#555350; }
+    .type-other    { background:#F1EFE8;color:#555350; }
+    .sched-actions { display:flex;gap:6px;margin-top:8px; }
+
+    /* ── SCROLLBAR ────────────────────────────────────────── */
+    ::-webkit-scrollbar { width: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #D0CEC8; border-radius: 3px; }
+  </style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════════════
+     LOGIN SCREEN
+     ═══════════════════════════════════════════════════════ -->
+<div id="login-screen">
+  <div class="login-card">
+    <div class="login-emblem"><i class="ti ti-building-community"></i></div>
+    <div class="login-title">Kochi Constituency</div>
+    <div class="login-sub">MLA Office — Application Tracker<br>Sign in with your office Google account</div>
+    <button class="login-btn" onclick="signInWithGoogle()">
+      <i class="ti ti-brand-google"></i>
+      Sign in with Google
+    </button>
+    <div id="login-error"></div>
+    <div class="login-footer">Mohammed Shiyas MLA · Constituency No. 80</div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     MAIN APP
+     ═══════════════════════════════════════════════════════ -->
+<div id="app" style="display:none; flex-direction:column; height:100vh;">
+
+  <!-- Status banners -->
+  <div class="banner" id="offline-banner">
+    <i class="ti ti-wifi-off"></i>
+    You are offline — new entries will be saved and synced when you reconnect
+  </div>
+  <div class="banner" id="sync-banner">
+    <i class="ti ti-refresh"></i>
+    <span id="sync-msg">Syncing offline entries...</span>
+  </div>
+
+  <div class="shell">
+
+    <!-- SIDEBAR -->
+    <div class="sidebar">
+      <div class="sidebar-logo">
+        <div class="sidebar-logo-title">Kochi Constituency</div>
+        <div class="sidebar-logo-sub">Application Tracker · No. 80</div>
+      </div>
+
+      <nav class="sidebar-nav">
+        <div class="nav-section">Main</div>
+        <button class="nav-item active" onclick="navTo('overview', this)">
+          <i class="ti ti-layout-dashboard"></i>Overview
+        </button>
+        <button class="nav-item" onclick="navTo('applications', this)">
+          <i class="ti ti-folder-open"></i>Applications
+        </button>
+        <button class="nav-item" onclick="navTo('constituents', this)">
+          <i class="ti ti-users"></i>Constituents
+        </button>
+
+        <div class="nav-section" data-require="canWrite">Add New</div>
+        <button class="nav-item" data-require="canWrite" onclick="navTo('new-app', this)">
+          <i class="ti ti-plus"></i>New Application
+        </button>
+        <button class="nav-item" data-require="canWrite" onclick="navTo('new-const', this)">
+          <i class="ti ti-user-plus"></i>Add Constituent
+        </button>
+
+        <button class="nav-item" onclick="navTo('reports', this)">
+          <i class="ti ti-file-analytics"></i>Reports
+        </button>
+
+        <div class="nav-section" data-require="canManageUsers">Admin</div>
+        <button class="nav-item" data-require="canManageUsers" onclick="navTo('manage-users', this)">
+          <i class="ti ti-shield-lock"></i>Manage Users
+        </button>
+      </nav>
+
+      <div class="sidebar-footer">
+        <div class="user-pill">
+          <div class="user-avatar" id="user-avatar">?</div>
+          <div>
+            <div class="user-name" id="user-name">Loading...</div>
+            <div class="user-role" id="user-role">—</div>
+          </div>
+          <button class="signout-btn" onclick="doSignOut()" title="Sign out">
+            <i class="ti ti-logout"></i>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- MAIN -->
+    <div class="main">
+      <div class="topbar">
+        <div>
+          <div class="topbar-title" id="page-title">Overview</div>
+          <div class="topbar-sub" id="page-sub">Kochi Constituency · 16th Kerala Legislative Assembly</div>
+        </div>
+        <div class="topbar-actions">
+          <button class="btn" data-require="canExport" onclick="doExport()">
+            <i class="ti ti-download"></i>Export CSV
+          </button>
+          <button class="btn btn-primary" data-require="canWrite" onclick="navTo('new-app', document.querySelector('[onclick*=new-app]'))">
+            <i class="ti ti-plus"></i>New Application
+          </button>
+        </div>
+      </div>
+
+      <div class="content">
+
+        <!-- ── OVERVIEW ──────────────────────────────────── -->
+        <div class="page active" id="page-overview">
+          <div class="stat-grid" id="stat-grid">
+            <div class="stat-card" onclick="filterAndNav('')" style="cursor:pointer" title="All applications">
+              <div class="stat-label">Total</div>
+              <div class="stat-val" id="s-total">—</div>
+              <div style="font-size:10px;color:var(--muted);margin-top:4px">All applications</div>
+            </div>
+            <div class="stat-card" onclick="filterAndNav('Open')" style="cursor:pointer" title="Open applications">
+              <div class="stat-label">Open</div>
+              <div class="stat-val" id="s-open" style="color:var(--saffron)">—</div>
+              <div style="font-size:10px;color:var(--muted);margin-top:4px">Awaiting action</div>
+            </div>
+            <div class="stat-card" onclick="filterAndNav('In Progress')" style="cursor:pointer" title="In progress">
+              <div class="stat-label">In Progress</div>
+              <div class="stat-val" id="s-inprogress" style="color:#185FA5">—</div>
+              <div style="font-size:10px;color:var(--muted);margin-top:4px">Being processed</div>
+            </div>
+            <div class="stat-card" onclick="filterAndNav('Resolved')" style="cursor:pointer" title="Resolved">
+              <div class="stat-label">Resolved</div>
+              <div class="stat-val" id="s-resolved" style="color:var(--green)">—</div>
+              <div style="font-size:10px;color:var(--muted);margin-top:4px">Completed</div>
+            </div>
+            <div class="stat-card" onclick="filterAndNav('Escalated')" style="cursor:pointer" title="Escalated">
+              <div class="stat-label">Escalated</div>
+              <div class="stat-val" id="s-escalated" style="color:var(--red)">—</div>
+              <div style="font-size:10px;color:var(--muted);margin-top:4px">Needs attention</div>
+            </div>
+            <div class="stat-card" onclick="filterAndNavPriority('Urgent')" style="cursor:pointer" title="Urgent priority">
+              <div class="stat-label">Urgent</div>
+              <div class="stat-val" id="s-urgent" style="color:var(--red)">—</div>
+              <div style="font-size:10px;color:var(--muted);margin-top:4px">High priority</div>
+            </div>
+          </div>
+
+          <div class="charts-row">
+            <div class="chart-card">
+              <h3>Applications by Administrative Level</h3>
+              <div style="position:relative;height:180px">
+                <canvas id="chart-level"></canvas>
+              </div>
+            </div>
+            <div class="chart-card">
+              <h3>Status Breakdown</h3>
+              <div id="status-legend" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;font-size:10px;"></div>
+              <div style="position:relative;height:130px">
+                <canvas id="chart-status"></canvas>
+              </div>
+            </div>
+          </div>
+
+          <div class="chart-card" style="margin-bottom:16px">
+            <h3>Level-wise Progress</h3>
+            <div id="progress-bars"></div>
+          </div>
+
+          <div class="section-hd">
+            <h2>Recent Applications</h2>
+            <button class="btn btn-sm" onclick="navTo('applications', document.querySelector('[onclick*=applications]'))">
+              View all <i class="ti ti-arrow-right"></i>
+            </button>
+          </div>
+          <div class="table-wrap">
+            <table class="app-table">
+              <thead><tr>
+                <th>Ref No.</th><th>Applicant</th><th>Subject</th>
+                <th>Level</th><th>Status</th><th>Date</th>
+              </tr></thead>
+              <tbody id="recent-body">
+                <tr class="loading-row"><td colspan="6">Loading...</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- UPCOMING 5 DAYS TILE -->
+          <div style="margin-top:20px">
+            <div class="section-hd" style="margin-bottom:10px">
+              <h2><i class="ti ti-calendar-week" style="color:var(--saffron);margin-right:5px"></i>Upcoming Schedule — Next 5 Days</h2>
+            </div>
+            <div id="ov-upcoming-body" style="background:var(--card);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden">
+              <div class="empty" style="padding:16px" id="ov-upcoming-empty">
+                <i class="ti ti-calendar-off"></i><p>No upcoming events</p>
+              </div>
+              <div id="ov-upcoming-list"></div>
+            </div>
+          </div>
+
+          <!-- INTEGRATED SCHEDULE WIDGET on overview -->
+          <div style="margin-top:20px">
+            <div class="section-hd" style="margin-bottom:10px">
+              <h2><i class="ti ti-calendar-event" style="color:var(--saffron);margin-right:5px"></i>Schedule</h2>
+              <div style="display:flex;gap:6px;align-items:center">
+                <input type="date" id="ov-sched-date"
+                  style="font-size:11px;padding:5px 8px;border:1px solid var(--border);border-radius:var(--radius);background:var(--card);color:var(--text);font-family:inherit"
+                  onchange="ovLoadSchedule()">
+                <button class="btn btn-sm" data-require="canWrite" onclick="ovOpenAddEvent()" title="Add event">
+                  <i class="ti ti-plus"></i>Add
+                </button>
+              </div>
+            </div>
+            <div id="ov-sched-body" style="background:var(--card);border:1px solid var(--border);border-radius:var(--radius);min-height:80px;overflow:hidden">
+              <div class="empty" style="padding:20px" id="ov-sched-empty">
+                <i class="ti ti-calendar-off"></i>
+                <p>No events for this date</p>
+              </div>
+              <div id="ov-sched-list"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── APPLICATIONS ──────────────────────────────── -->
+        <div class="page" id="page-applications">
+          <div class="filter-row">
+            <input type="text" id="f-search" placeholder="Search name / subject / ref..." oninput="renderAppsTable()">
+            <select id="f-level" onchange="renderAppsTable()">
+              <option value="">All levels</option>
+              <option>Municipality / Panchayat</option>
+              <option>District Administration</option>
+              <option>District Offices</option>
+              <option>State Ministry / Dept</option>
+            </select>
+            <select id="f-status" onchange="renderAppsTable()">
+              <option value="">All statuses</option>
+              <option>Open</option><option>In Progress</option>
+              <option>Resolved</option><option>Escalated</option>
+            </select>
+            <select id="f-cat" onchange="renderAppsTable()">
+              <option value="">All categories</option>
+              <option>Housing</option><option>Healthcare</option><option>Employment</option>
+              <option>Infrastructure</option><option>Education</option>
+              <option>Legal</option><option>Welfare</option><option>Other</option>
+            </select>
+            <button class="btn btn-sm" onclick="loadApplications()"><i class="ti ti-refresh"></i>Refresh</button>
+          </div>
+          <div class="table-wrap">
+            <table class="app-table">
+              <thead><tr>
+                <th>Ref No.</th><th>Applicant</th><th>Subject</th><th>Level</th>
+                <th>Category</th><th>Status</th><th>Priority</th><th>MLA Letter</th><th>Date</th>
+              </tr></thead>
+              <tbody id="apps-body">
+                <tr class="loading-row"><td colspan="9">Loading applications...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- ── NEW APPLICATION ───────────────────────────── -->
+        <div class="page" id="page-new-app">
+          <div class="form-card">
+            <h2><i class="ti ti-file-plus" style="color:var(--saffron)"></i> New Constituent Application</h2>
+            <div class="form-grid">
+              <div class="form-group">
+                <label>Applicant Name *</label>
+                <input id="n-name" type="text" placeholder="Full name">
+              </div>
+              <div class="form-group">
+                <label>Phone Number</label>
+                <input id="n-phone" type="text" placeholder="+91 XXXXX XXXXX">
+              </div>
+              <div class="form-group">
+                <label>Ward / Area</label>
+                <input id="n-ward" type="text" placeholder="Ward No. or locality name">
+              </div>
+              <div class="form-group">
+                <label>Category</label>
+                <select id="n-cat">
+                  <option>Housing</option><option>Healthcare</option><option>Employment</option>
+                  <option>Infrastructure</option><option>Education</option>
+                  <option>Legal</option><option>Welfare</option><option>Other</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>Administrative Level *</label>
+                <select id="n-level">
+                  <option>Municipality / Panchayat</option>
+                  <option>District Administration</option>
+                  <option>District Offices</option>
+                  <option>State Ministry / Dept</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>Forwarded To (Dept / Officer)</label>
+                <input id="n-fwd" type="text" placeholder="e.g. District Collector, Health Dept">
+              </div>
+              <div class="form-group full">
+                <label>Subject / Description *</label>
+                <textarea id="n-subj" placeholder="Briefly describe the matter..."></textarea>
+              </div>
+              <div class="form-group">
+                <label>Initial Application (PDF or JPG)</label>
+                <div class="upload-zone" onclick="openDrivePicker('app')" id="picker-app-zone">
+                  <i class="ti ti-brand-google-drive" style="color:#4285F4"></i>
+                  <p>Click to select from Google Drive</p>
+                  <div class="file-name" id="n-app-file-name"></div>
+                </div>
+                <input type="hidden" id="n-app-drive-url">
+                <input type="hidden" id="n-app-file-name-val">
+              </div>
+              <div class="form-group">
+                <label>MLA Recommendation Letter (optional)</label>
+                <div class="upload-zone" onclick="openDrivePicker('mla')" id="picker-mla-zone">
+                  <i class="ti ti-brand-google-drive" style="color:#4285F4"></i>
+                  <p>Click to select from Google Drive</p>
+                  <div class="file-name" id="n-mla-file-name"></div>
+                </div>
+                <input type="hidden" id="n-mla-drive-url">
+                <input type="hidden" id="n-mla-file-name-val">
+              </div>
+              <div class="form-group">
+                <label>Status</label>
+                <select id="n-status">
+                  <option>Open</option><option>In Progress</option>
+                  <option>Resolved</option><option>Escalated</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>Priority</label>
+                <select id="n-priority">
+                  <option>Normal</option><option>High</option><option>Urgent</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>Follow-up Date (Timer)</label>
+                <input id="n-followup" type="date" title="Set a follow-up reminder date">
+              </div>
+              <div class="form-group full">
+                <label>Internal Notes</label>
+                <textarea id="n-notes" placeholder="Officer notes, follow-up reminders..."></textarea>
+              </div>
+              <div class="form-group">
+                <label>Next Steps</label>
+                <textarea id="n-next-steps" placeholder="What should happen next..."></textarea>
+              </div>
+              <div class="form-group">
+                <label>Remarks</label>
+                <textarea id="n-remarks" placeholder="Any additional remarks..."></textarea>
+              </div>
+            </div>
+            <div style="display:flex;gap:10px">
+              <button class="btn btn-primary" onclick="submitApp()">
+                <i class="ti ti-check"></i>Save Application
+              </button>
+              <button class="btn" onclick="clearAppForm()">
+                <i class="ti ti-x"></i>Clear
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── CONSTITUENTS ──────────────────────────────── -->
+        <div class="page" id="page-constituents">
+          <div class="filter-row">
+            <input type="text" id="c-search" placeholder="Search name, ward, phone..."
+              oninput="renderConstituents()">
+            <button class="btn btn-sm" onclick="loadConstituents()">
+              <i class="ti ti-refresh"></i>Refresh
+            </button>
+          </div>
+          <div class="ppl-grid" id="ppl-grid">
+            <div class="empty" style="grid-column:1/-1">
+              <i class="ti ti-users"></i><p>Loading constituents...</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── NEW CONSTITUENT ───────────────────────────── -->
+        <div class="page" id="page-new-const">
+          <div class="form-card" style="max-width:560px">
+            <h2><i class="ti ti-user-plus" style="color:var(--saffron)"></i> Add Constituent Profile</h2>
+            <div class="form-grid">
+              <div class="form-group">
+                <label>Full Name *</label>
+                <input id="c-name" type="text" placeholder="Full name">
+              </div>
+              <div class="form-group">
+                <label>Phone *</label>
+                <input id="c-phone" type="text" placeholder="+91 XXXXX XXXXX">
+              </div>
+              <div class="form-group">
+                <label>Ward / Area</label>
+                <input id="c-ward" type="text" placeholder="Ward No. or locality">
+              </div>
+              <div class="form-group">
+                <label>Voter ID (optional)</label>
+                <input id="c-voter" type="text" placeholder="Voter ID card number">
+              </div>
+              <div class="form-group full">
+                <label>Address</label>
+                <textarea id="c-addr" placeholder="Full address..."></textarea>
+              </div>
+              <div class="form-group full">
+                <label>Notes</label>
+                <textarea id="c-notes" placeholder="Any additional information..."></textarea>
+              </div>
+            </div>
+            <button class="btn btn-primary" onclick="submitConstituent()">
+              <i class="ti ti-check"></i>Save Constituent
+            </button>
+          </div>
+        </div>
+
+        <!-- ── REPORTS ──────────────────────────────────── -->
+        <div class="page" id="page-reports">
+          <div class="form-card" style="max-width:720px">
+            <h2><i class="ti ti-file-analytics" style="color:var(--saffron)"></i> Generate Application Report</h2>
+            <p style="font-size:12px;color:var(--muted);margin-bottom:16px">
+              Generate a printable A4 PDF report of constituent applications — suitable for pasting into a register book.
+            </p>
+            <div class="form-grid" style="margin-bottom:16px">
+              <div class="form-group">
+                <label>From Date</label>
+                <input id="rpt-from" type="date">
+              </div>
+              <div class="form-group">
+                <label>To Date</label>
+                <input id="rpt-to" type="date">
+              </div>
+              <div class="form-group">
+                <label>Filter by Level</label>
+                <select id="rpt-level">
+                  <option value="">All levels</option>
+                  <option>Municipality / Panchayat</option>
+                  <option>District Administration</option>
+                  <option>District Offices</option>
+                  <option>State Ministry / Dept</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>Filter by Status</label>
+                <select id="rpt-status">
+                  <option value="">All statuses</option>
+                  <option>Open</option><option>In Progress</option>
+                  <option>Resolved</option><option>Escalated</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>Filter by Category</label>
+                <select id="rpt-category">
+                  <option value="">All categories</option>
+                  <option>Housing</option><option>Healthcare</option>
+                  <option>Employment</option><option>Infrastructure</option>
+                  <option>Education</option><option>Legal</option>
+                  <option>Welfare</option><option>Other</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>Sort by</label>
+                <select id="rpt-sort">
+                  <option value="date_desc">Date (newest first)</option>
+                  <option value="date_asc">Date (oldest first)</option>
+                  <option value="name">Applicant name</option>
+                  <option value="level">Administrative level</option>
+                  <option value="status">Status</option>
+                </select>
+              </div>
+            </div>
+
+            <div style="background:#EAF3DE;border:1px solid #C5E0B0;border-radius:var(--radius);padding:12px;margin-bottom:16px;font-size:12px;color:#27500A">
+              <b>Report fields (strict A4 register format):</b><br>
+              Sl. No. · Applicant Name &amp; Contact Address · Petition Details ·
+              Action Taken · Current Status · Next Steps · Remarks
+            </div>
+
+            <div style="display:flex;gap:10px;flex-wrap:wrap">
+              <button class="btn btn-primary" onclick="generateRegisterPDF()">
+                <i class="ti ti-printer"></i>Download Register PDF
+              </button>
+              <button class="btn" onclick="previewRegisterReport()">
+                <i class="ti ti-eye"></i>Preview Report
+              </button>
+              <button class="btn" onclick="generateCSVReport()">
+                <i class="ti ti-table-export"></i>Export CSV
+              </button>
+            </div>
+          </div>
+
+          <!-- Specific applications selector -->
+          <div class="form-card" style="max-width:720px;margin-top:14px">
+            <h2><i class="ti ti-checklist" style="color:var(--saffron)"></i> Select Specific Applications</h2>
+            <p style="font-size:12px;color:var(--muted);margin-bottom:12px">
+              Hand-pick individual applications for a custom report.
+            </p>
+            <div class="filter-row" style="margin-bottom:10px">
+              <input type="text" id="rpt-search" placeholder="Search to find applications..."
+                oninput="renderReportSelector()" style="flex:1">
+            </div>
+            <div id="rpt-selector" style="max-height:300px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--radius);background:var(--card)">
+              <div class="empty" style="padding:20px">
+                <i class="ti ti-loader"></i><p>Loading applications...</p>
+              </div>
+            </div>
+            <div style="margin-top:10px;display:flex;gap:10px;align-items:center">
+              <span id="rpt-selected-count" style="font-size:12px;color:var(--muted)">None selected</span>
+              <button class="btn btn-primary" onclick="generateSelectedRegisterPDF()" style="margin-left:auto">
+                <i class="ti ti-printer"></i>Download Selected as PDF
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── MANAGE USERS ──────────────────────────────── -->
+        <div class="page" id="page-manage-users">
+          <div class="form-card" style="max-width:560px; margin-bottom:20px">
+            <h2><i class="ti ti-user-shield" style="color:var(--saffron)"></i> Add Staff User</h2>
+            <div class="form-grid">
+              <div class="form-group">
+                <label>Full Name</label>
+                <input id="u-name" type="text" placeholder="Staff member name">
+              </div>
+              <div class="form-group">
+                <label>Google Email *</label>
+                <input id="u-email" type="email" placeholder="staff@gmail.com">
+              </div>
+              <div class="form-group">
+                <label>Role *</label>
+                <select id="u-role">
+                  <option value="data_entry">Data Entry (add/edit, no delete)</option>
+                  <option value="viewer">Viewer (read-only)</option>
+                  <option value="admin">Admin (full access)</option>
+                </select>
+              </div>
+            </div>
+            <button class="btn btn-primary" onclick="submitUser()">
+              <i class="ti ti-plus"></i>Add User
+            </button>
+          </div>
+
+          <div class="section-hd"><h2>Current Users</h2></div>
+          <div class="table-wrap">
+            <table class="app-table">
+              <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Active</th><th>Actions</th></tr></thead>
+              <tbody id="users-body">
+                <tr class="loading-row"><td colspan="5">Loading users...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- ── DAILY SCHEDULE ───────────────────────────── -->
+        <div class="page" id="page-schedule">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:10px">
+            <div style="display:flex;align-items:center;gap:10px">
+              <input type="date" id="sched-date" style="font-size:13px;padding:7px 10px;border:1px solid var(--border);border-radius:var(--radius);background:var(--card);color:var(--text);font-family:inherit">
+              <button class="btn" onclick="loadSchedule()"><i class="ti ti-refresh"></i>Load</button>
+            </div>
+            <button class="btn btn-primary" data-require="canWrite" onclick="openAddEvent()">
+              <i class="ti ti-plus"></i>Add Event
+            </button>
+          </div>
+
+          <!-- Timeline view -->
+          <div id="schedule-timeline" style="position:relative">
+            <div class="empty" id="sched-empty" style="display:none">
+              <i class="ti ti-calendar-off"></i>
+              <p>No events scheduled for this date</p>
+            </div>
+            <div id="sched-list"></div>
+          </div>
+        </div>
+
+      </div><!-- /content -->
+    </div><!-- /main -->
+  </div><!-- /shell -->
+</div><!-- /app -->
+
+<!-- EDIT APPLICATION MODAL -->
+<div class="modal-bg" id="edit-modal" onclick="if(event.target===this)closeEditModal()">
+  <div class="modal">
+    <div class="modal-hd">
+      <h2 id="edit-modal-title">Edit Application</h2>
+      <button class="btn btn-sm" onclick="closeEditModal()"><i class="ti ti-x"></i></button>
+    </div>
+    <div class="modal-body">
+      <div class="edit-grid">
+        <div class="edit-group"><label>Status</label>
+          <select id="e-status">
+            <option>Open</option><option>In Progress</option>
+            <option>Resolved</option><option>Escalated</option>
+          </select>
+        </div>
+        <div class="edit-group"><label>Priority</label>
+          <select id="e-priority">
+            <option>Normal</option><option>High</option><option>Urgent</option>
+          </select>
+        </div>
+        <div class="edit-group"><label>Category</label>
+          <select id="e-category">
+            <option>Housing</option><option>Healthcare</option><option>Employment</option>
+            <option>Infrastructure</option><option>Education</option>
+            <option>Legal</option><option>Welfare</option><option>Other</option>
+          </select>
+        </div>
+        <div class="edit-group"><label>Forwarded To</label>
+          <input id="e-fwd" type="text" placeholder="Dept / Officer">
+        </div>
+        <div class="edit-group"><label>Follow-up Date (Timer)</label>
+          <input id="e-followup" type="date">
+        </div>
+        <div class="edit-group"><label>Application Document</label>
+          <div class="upload-zone" onclick="openEditDrivePicker('app')" style="padding:10px">
+            <i class="ti ti-brand-google-drive" style="font-size:18px;color:#4285F4"></i>
+            <p style="font-size:10px">Click to link from Drive</p>
+            <div class="file-name" id="e-app-file-label"></div>
+          </div>
+          <input type="hidden" id="e-app-drive-url">
+        </div>
+        <div class="edit-group"><label>MLA Letter</label>
+          <div class="upload-zone" onclick="openEditDrivePicker('mla')" style="padding:10px">
+            <i class="ti ti-brand-google-drive" style="font-size:18px;color:#4285F4"></i>
+            <p style="font-size:10px">Click to link from Drive</p>
+            <div class="file-name" id="e-mla-file-label"></div>
+          </div>
+          <input type="hidden" id="e-mla-drive-url">
+        </div>
+        <div class="edit-group full"><label>Internal Notes</label>
+          <textarea id="e-notes" placeholder="Officer notes..."></textarea>
+        </div>
+        <div class="edit-group"><label>Next Steps</label>
+          <textarea id="e-next-steps" placeholder="What should happen next..."></textarea>
+        </div>
+        <div class="edit-group"><label>Remarks</label>
+          <textarea id="e-remarks" placeholder="Any additional remarks..."></textarea>
+        </div>
+      </div>
+      <input type="hidden" id="e-ref-id">
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-primary" onclick="saveEdit()">
+          <i class="ti ti-check"></i>Save Changes
+        </button>
+        <button class="btn" onclick="closeEditModal()">Cancel</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- APPLICATION DETAIL MODAL -->
+<div class="modal-bg" id="app-modal" onclick="if(event.target===this)closeModal()">
+  <div class="modal">
+    <div class="modal-hd">
+      <h2 id="modal-title">Application Details</h2>
+      <button class="btn btn-sm" onclick="closeModal()"><i class="ti ti-x"></i></button>
+    </div>
+    <div class="modal-body" id="modal-body"></div>
+  </div>
+</div>
+
+<!-- CONSTITUENT DETAIL MODAL -->
+<div class="modal-bg" id="const-modal" onclick="if(event.target===this)closeConstModal()">
+  <div class="modal">
+    <div class="modal-hd">
+      <h2 id="const-modal-title">Constituent Profile</h2>
+      <button class="btn btn-sm" onclick="closeConstModal()"><i class="ti ti-x"></i></button>
+    </div>
+    <div class="modal-body" id="const-modal-body"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<!-- SCHEDULE EVENT MODAL -->
+<div class="modal-bg" id="sched-modal" onclick="if(event.target===this)closeSchedModal()">
+  <div class="modal" style="max-width:480px">
+    <div class="modal-hd">
+      <h2 id="sched-modal-title">Add Event</h2>
+      <button class="btn btn-sm" onclick="closeSchedModal()"><i class="ti ti-x"></i></button>
+    </div>
+    <div class="modal-body">
+      <div class="edit-grid">
+        <div class="edit-group"><label>Date *</label>
+          <input id="ev-date" type="date">
+        </div>
+        <div class="edit-group"><label>Time *</label>
+          <input id="ev-time" type="time">
+        </div>
+        <div class="edit-group"><label>End Time</label>
+          <input id="ev-end-time" type="time">
+        </div>
+        <div class="edit-group"><label>Event Type</label>
+          <select id="ev-type">
+            <option value="meeting">Meeting</option>
+            <option value="visit">Constituency Visit</option>
+            <option value="assembly">Assembly Session</option>
+            <option value="office">Office Hours</option>
+            <option value="personal">Personal</option>
+            <option value="other">Other</option>
+          </select>
+        </div>
+        <div class="edit-group full"><label>Title *</label>
+          <input id="ev-title" type="text" placeholder="Event title">
+        </div>
+        <div class="edit-group full"><label>Location</label>
+          <input id="ev-location" type="text" placeholder="Venue or location">
+        </div>
+        <div class="edit-group full"><label>Description / Notes</label>
+          <textarea id="ev-desc" placeholder="Additional details..."></textarea>
+        </div>
+        <div class="edit-group full"><label>Attendees</label>
+          <input id="ev-attendees" type="text" placeholder="Names of attendees (comma separated)">
+        </div>
+      </div>
+      <input type="hidden" id="ev-id">
+      <div style="display:flex;gap:8px;margin-top:4px">
+        <button class="btn btn-primary" onclick="saveEvent()">
+          <i class="ti ti-check"></i>Save Event
+        </button>
+        <button class="btn" onclick="closeSchedModal()">Cancel</button>
+        <button class="btn btn-danger" id="ev-delete-btn" onclick="deleteEvent()" style="display:none;margin-left:auto">
+          <i class="ti ti-trash"></i>Delete
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     CONFIGURATION — FILL IN YOUR VALUES BELOW
+     ═══════════════════════════════════════════════════════ -->
+<script>
+  /* ─────────────────────────────────────────────────────
+     STEP 1: Paste your Apps Script Web App URL here
+     (from Deploy → Manage deployments → copy the URL)
+     ───────────────────────────────────────────────────── */
+  // ── STEP 1: Replace with your Apps Script Web App URL ──
+  const GAS_ENDPOINT = 'https://script.google.com/macros/s/AKfycbxVz_tVgMt5pQYLtCgGkLCWOSDRfItVJMbAuA0Q7VBP5k91U-6qVdP_SVNZUrUh81_E/exec';
+
+  // ── STEP 2: Firebase config (already filled in) ────────
+  const FIREBASE_CONFIG = {
+    apiKey:            'AIzaSyA_q-Q7JXOzBidL0G5g_IY3YsiyUXsflq8',
+    authDomain:        'kochi-constituency-tracker.firebaseapp.com',
+    projectId:         'kochi-constituency-tracker',
+    storageBucket:     'kochi-constituency-tracker.firebasestorage.app',
+    messagingSenderId: '217690673183',
+    appId:             '1:217690673183:web:ae1cf17521495d446d452a',
+  };
+</script>
+
+<!-- ═══════════════════════════════════════════════════════════
+     APP LOGIC
+     ═══════════════════════════════════════════════════════ -->
+<script>
+/* ── CONSTANTS ─────────────────────────────────────────────── */
+const ROLE_CAPS = {
+  admin:      { canWrite:true,  canDelete:true,  canExport:true,  canManageUsers:true  },
+  data_entry: { canWrite:true,  canDelete:false, canExport:false, canManageUsers:false },
+  viewer:     { canWrite:false, canDelete:false, canExport:false, canManageUsers:false },
+};
+const LEVEL_BADGE = {
+  'Municipality / Panchayat': 'lv-mun',
+  'District Administration':  'lv-dist',
+  'District Offices':         'lv-offi',
+  'State Ministry / Dept':    'lv-state',
+};
+const LEVEL_SHORT = {
+  'Municipality / Panchayat': 'Corp/Panchayat',
+  'District Administration':  'District Admin',
+  'District Offices':         'Dist Offices',
+  'State Ministry / Dept':    'State/Ministry',
+};
+const STATUS_BADGE = { 'Open':'st-open','In Progress':'st-wip','Resolved':'st-done','Escalated':'st-esc' };
+const LEVEL_COLORS = {
+  'Municipality / Panchayat': '#185FA5',
+  'District Administration':  '#BA7517',
+  'District Offices':         '#534AB7',
+  'State Ministry / Dept':    '#3B6D11',
+};
+const STATUS_COLORS = { 'Open':'#BA7517','In Progress':'#185FA5','Resolved':'#3B6D11','Escalated':'#A32D2D' };
+
+/* ── STATE ─────────────────────────────────────────────────── */
+let _fbUser    = null;
+let _idToken   = null;
+let _userRole  = 'viewer';
+let _isOnline  = navigator.onLine;
+let _allApps   = [];
+let _allConsts = [];
+let _chartLevel, _chartStatus;
+
+/* ── FIREBASE AUTH ─────────────────────────────────────────── */
+// Flag: only set to true when user clicks the sign-in button
+let _autoLoginAllowed = false;
+
+// Initialise Firebase only after all scripts have loaded
+function _initFirebase() {
+  if (typeof firebase === 'undefined') {
+    // SDK not ready yet — retry in 100ms
+    setTimeout(_initFirebase, 100);
+    return;
+  }
+
+  firebase.initializeApp(FIREBASE_CONFIG);
+
+  // We do NOT auto-login on page load.
+  // Always show login screen first — user must click "Sign in with Google"
+  firebase.auth().onAuthStateChanged(async function(user) {
+    if (user && _autoLoginAllowed) {
+      _fbUser = user;
+      await _refreshToken();
+      _applyRoleUI();
+      _showApp();
+      loadOverview();
+    } else {
+      // Always start at login screen — clear any cached session
+      if (firebase.auth().currentUser) {
+        await firebase.auth().signOut();
+      }
+      _showLogin();
+    }
+  });
+}
+
+// Start init after DOM is ready
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', _initFirebase);
+} else {
+  _initFirebase();
+}
+
+setInterval(_refreshToken, 50 * 60 * 1000);
+
+async function _refreshToken() {
+  if (!_fbUser) return;
+  try {
+    const result = await _fbUser.getIdTokenResult(true);
+    _idToken = result.token;
+    // Always fetch role from sheet — do not rely on Firebase claims
+    await _fetchRoleFromSheet();
+    const initials = (_fbUser.displayName || _fbUser.email || '?')
+      .split(' ').map(w => w[0]).join('').slice(0,2).toUpperCase();
+    const el = document.getElementById('user-avatar');
+    if (el) el.textContent = initials;
+    const nameEl = document.getElementById('user-name');
+    if (nameEl) nameEl.textContent = _fbUser.displayName || _fbUser.email;
+    const roleEl = document.getElementById('user-role');
+    if (roleEl) roleEl.textContent = _userRole;
+  } catch(e) { console.error('Token refresh failed', e); }
+}
+
+async function _fetchRoleFromSheet() {
+  try {
+    // Call get_my_role — passes email directly, returns role from USERS sheet
+    const res = await fetch(GAS_ENDPOINT, {
+      method: 'POST',
+      body: JSON.stringify({
+        action: 'get_my_role',
+        token:  _idToken,
+        email:  _fbUser.email,
+      }),
+    });
+    const json = await res.json();
+    if (json.ok && json.data && json.data.role) {
+      _userRole = json.data.role;
+      console.log('[role] Fetched from sheet:', _userRole);
+    } else {
+      console.warn('[role] Could not fetch role:', json);
+      _userRole = 'viewer';
+    }
+  } catch(e) {
+    console.error('[role] Fetch error:', e);
+    _userRole = 'viewer';
+  }
+}
+
+function signInWithGoogle() {
+  if (typeof firebase === 'undefined') {
+    var errEl = document.getElementById('login-error');
+    if (errEl) { errEl.textContent = 'App still loading. Please wait a moment and try again.'; errEl.style.display = 'block'; }
+    return;
+  }
+  _autoLoginAllowed = true;
+  var provider = new firebase.auth.GoogleAuthProvider();
+  provider.setCustomParameters({ prompt: 'select_account' });
+  firebase.auth().signInWithPopup(provider).catch(function(e) {
+    var el = document.getElementById('login-error');
+    if (el) { el.textContent = e.message; el.style.display = 'block'; }
+  });
+}
+function doSignOut() {
+  if (typeof firebase === 'undefined') { _showLogin(); return; }
+  firebase.auth().signOut().then(function() {
+    _fbUser    = null;
+    _idToken   = null;
+    _userRole  = 'viewer';
+    _allApps   = [];
+    _allConsts = [];
+    _autoLoginAllowed = false;
+    _showLogin();
+  });
+}
+
+/* ── ONLINE / OFFLINE ──────────────────────────────────────── */
+window.addEventListener('online',  function() {
+  _isOnline = true;
+  document.getElementById('offline-banner').style.display = 'none';
+  document.getElementById('sync-banner').style.display = 'flex';
+  _syncOfflineQueue().then(function() {
+    document.getElementById('sync-banner').style.display = 'none';
+    loadOverview();
+  });
+});
+window.addEventListener('offline', function() {
+  _isOnline = false;
+  document.getElementById('offline-banner').style.display = 'flex';
+});
+
+/* ── ROLE UI ───────────────────────────────────────────────── */
+function _applyRoleUI() {
+  const caps = ROLE_CAPS[_userRole] || ROLE_CAPS.viewer;
+  document.querySelectorAll('[data-require]').forEach(function(el) {
+    el.style.display = caps[el.getAttribute('data-require')] ? '' : 'none';
+  });
+}
+
+/* ── API CALL ──────────────────────────────────────────────── */
+async function api(action, payload) {
+  payload = payload || {};
+  if (!_isOnline && _isWrite(action)) {
+    await _enqueue(action, payload);
+    return { offline: true };
+  }
+  if (!_idToken) await _refreshToken();
+  const body = Object.assign({ action: action, token: _idToken }, payload);
+  // NOTE: No Content-Type header — Apps Script cannot handle CORS preflight.
+  // Sending as plain text (no custom headers) bypasses preflight entirely.
+  const res  = await fetch(GAS_ENDPOINT, {
+    method: 'POST',
+    body: JSON.stringify(body),
+  });
+  const json = await res.json();
+  if (!json.ok) throw new Error(json.error || 'API error');
+  return json.data;
+}
+
+function _isWrite(action) {
+  return ['add_application','update_application','add_constituent',
+          'update_constituent','mark_mla_letter'].includes(action);
+}
+
+/* ── OFFLINE QUEUE (IndexedDB) ─────────────────────────────── */
+function _openDB() {
+  return new Promise(function(resolve, reject) {
+    const req = indexedDB.open('kochi_tracker', 1);
+    req.onupgradeneeded = function(e) {
+      e.target.result.createObjectStore('queue', { keyPath:'id', autoIncrement:true });
+    };
+    req.onsuccess = function(e) { resolve(e.target.result); };
+    req.onerror   = function(e) { reject(e.target.error); };
+  });
+}
+
+async function _enqueue(action, payload) {
+  const db = await _openDB();
+  return new Promise(function(resolve) {
+    const tx = db.transaction('queue','readwrite');
+    tx.objectStore('queue').add({ action:action, payload:payload, ts:Date.now() });
+    tx.oncomplete = resolve;
+  });
+}
+
+async function _syncOfflineQueue() {
+  const db    = await _openDB();
+  const items = await new Promise(function(resolve) {
+    const tx  = db.transaction('queue','readonly');
+    const req = tx.objectStore('queue').getAll();
+    req.onsuccess = function() { resolve(req.result); };
+  });
+  for (const item of items) {
+    try {
+      await api(item.action, item.payload);
+      await new Promise(function(resolve) {
+        const tx = db.transaction('queue','readwrite');
+        tx.objectStore('queue').delete(item.id).onsuccess = resolve;
+      });
+    } catch(e) { break; }
+  }
+}
+
+/* ── NAVIGATION ────────────────────────────────────────────── */
+const PAGE_TITLES = {
+  'overview':      ['Overview', 'Real-time constituency analytics'],
+  'applications':  ['Applications', 'All constituent applications'],
+  'new-app':       ['New Application', 'Register a new constituent application'],
+  'constituents':  ['Constituents', 'Constituent profile database'],
+  'new-const':     ['Add Constituent', 'Create a new constituent profile'],
+  'manage-users':  ['Manage Users', 'Add and manage staff access'],
+  'schedule':      ['Daily Schedule', 'MLA office event and meeting calendar'],
+  'reports':       ['Reports', 'Generate and download application reports'],
+};
+
+function navTo(page, el) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  const pageEl = document.getElementById('page-' + page);
+  if (pageEl) pageEl.classList.add('active');
+  if (el) el.classList.add('active');
+  const info = PAGE_TITLES[page] || [page, ''];
+  document.getElementById('page-title').textContent = info[0];
+  document.getElementById('page-sub').textContent   = info[1];
+  if (page === 'overview')      loadOverview();
+  if (page === 'applications')  loadApplications();
+  if (page === 'constituents')  loadConstituents();
+  if (page === 'manage-users')  loadUsers();
+  if (page === 'schedule')      initSchedule();
+  if (page === 'reports')       initReports();
+}
+
+/* ── SHOW / HIDE ───────────────────────────────────────────── */
+function _showApp() {
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('app').style.display = 'flex';
+}
+function _showLogin() {
+  document.getElementById('login-screen').style.display = 'flex';
+  document.getElementById('app').style.display = 'none';
+}
+
+/* ═══════════════════════════════════════════════════════════
+   OVERVIEW
+   ═══════════════════════════════════════════════════════ */
+async function loadOverview() {
+  try {
+    const data       = await api('get_stats');
+    window._lastStats = data;
+    _updateStatCards(data);
+
+    _renderLevelChart(data.by_level || {});
+    _renderStatusChart(data.by_status || {});
+    _renderProgressBars(data.by_level || {}, data.total || 0);
+
+    const recentData = await api('get_applications', {});
+    _allApps = recentData.applications || [];
+    _renderAlerts(_allApps);
+    _renderRecentTable(_allApps.slice(0, 6));
+    _renderOverviewSchedule();    // today's schedule widget
+    _renderUpcomingSchedule();    // upcoming 5 days tile
+  } catch(e) {
+    console.error('loadOverview error:', e);
+    toast('Could not load overview: ' + e.message, true);
+  }
+}
+
+/* ══════════════════════════════════════════════════════════
+   OVERVIEW INTEGRATED SCHEDULE WIDGET
+   ══════════════════════════════════════════════════════════ */
+
+var OV_TYPE_COLORS = {
+  meeting:'#185FA5', visit:'#3B6D11', assembly:'#534AB7',
+  office:'#BA7517',  personal:'#888780', other:'#888780',
+};
+
+/* ── Called on loadOverview — sets today and loads events ── */
+async function _renderOverviewSchedule() {
+  var dp = document.getElementById('ov-sched-date');
+  if (dp && !dp.value) dp.value = new Date().toISOString().slice(0, 10);
+  await ovLoadSchedule();
+}
+
+/* ── Load events for selected date into overview widget ──── */
+async function ovLoadSchedule() {
+  var dp   = document.getElementById('ov-sched-date');
+  var date = dp ? dp.value : new Date().toISOString().slice(0,10);
+  if (!date) return;
+
+  var empty = document.getElementById('ov-sched-empty');
+  var list  = document.getElementById('ov-sched-list');
+  if (!list) return;
+
+  try {
+    var db = await _openSchedDB();
+    var events = await new Promise(function(resolve) {
+      var tx  = db.transaction('events', 'readonly');
+      var idx = tx.objectStore('events').index('date');
+      var req = idx.getAll(date);
+      req.onsuccess = function() { resolve(req.result); };
+    });
+
+    events.sort(function(a, b) { return (a.time||'').localeCompare(b.time||''); });
+
+    if (!events.length) {
+      list.innerHTML  = '';
+      if (empty) empty.style.display = 'block';
+      return;
+    }
+    if (empty) empty.style.display = 'none';
+    var caps = ROLE_CAPS[_userRole] || ROLE_CAPS.viewer;
+
+    list.innerHTML = events.map(function(ev) {
+      var color   = OV_TYPE_COLORS[ev.type] || '#888780';
+      var timeStr = ev.time
+        ? ev.time + (ev.end_time ? ' – ' + ev.end_time : '')
+        : 'All day';
+      var locHtml = ev.location
+        ? ' <span style="color:var(--muted)"><i class="ti ti-map-pin" style="font-size:10px"></i> ' + _esc(ev.location) + '</span>'
+        : '';
+      var editBtn = caps.canWrite
+        ? '<button class="btn btn-sm" style="padding:3px 8px;font-size:10px" onclick="ovEditEvent(' + ev.id + ')">'
+          + '<i class="ti ti-pencil"></i></button>'
+        : '';
+      var delBtn = caps.canWrite
+        ? '<button class="btn btn-sm btn-danger" style="padding:3px 8px;font-size:10px" onclick="ovDeleteEvent(' + ev.id + ')">'
+          + '<i class="ti ti-trash"></i></button>'
+        : '';
+
+      return '<div style="display:flex;align-items:stretch;gap:10px;padding:10px 14px;border-bottom:1px solid var(--border)">'
+        + '<div style="width:60px;flex-shrink:0;text-align:center">'
+        +   '<div style="font-size:12px;font-weight:600;color:var(--text)">' + timeStr.split(' – ')[0] + '</div>'
+        +   (ev.end_time ? '<div style="font-size:9px;color:var(--muted)">' + ev.end_time + '</div>' : '')
+        + '</div>'
+        + '<div style="width:3px;border-radius:2px;background:' + color + ';flex-shrink:0"></div>'
+        + '<div style="flex:1;min-width:0">'
+        +   '<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">'
+        +     '<span class="sched-type-badge type-' + (ev.type||'other') + '" style="font-size:9px">' + (ev.type||'other') + '</span>'
+        +     '<span style="font-size:12px;font-weight:500;color:var(--text)">' + _esc(ev.title||'Untitled') + '</span>'
+        +   '</div>'
+        +   (ev.location || ev.attendees
+            ? '<div style="font-size:10px;color:var(--muted);margin-top:2px">' + locHtml
+              + (ev.attendees ? ' <span><i class="ti ti-users" style="font-size:10px"></i> ' + _esc(ev.attendees) + '</span>' : '')
+              + '</div>'
+            : '')
+        +   (ev.description ? '<div style="font-size:10px;color:var(--text2);margin-top:3px;line-height:1.4">' + _esc(ev.description) + '</div>' : '')
+        + '</div>'
+        + '<div style="display:flex;flex-direction:column;gap:3px;flex-shrink:0">' + editBtn + delBtn + '</div>'
+        + '</div>';
+    }).join('');
+
+  } catch(e) {
+    console.error('ovLoadSchedule error:', e);
+  }
+}
+
+/* ── Add event from overview ─────────────────────────────── */
+function ovOpenAddEvent() {
+  var caps = ROLE_CAPS[_userRole] || ROLE_CAPS.viewer;
+  if (!caps.canWrite) { toast('View-only access', true); return; }
+  // Pre-fill with selected date
+  var date = document.getElementById('ov-sched-date').value || new Date().toISOString().slice(0,10);
+  document.getElementById('sched-modal-title').textContent = 'Add Event';
+  document.getElementById('ev-id').value          = '';
+  document.getElementById('ev-date').value        = date;
+  document.getElementById('ev-time').value        = '';
+  document.getElementById('ev-end-time').value    = '';
+  document.getElementById('ev-type').value        = 'meeting';
+  document.getElementById('ev-title').value       = '';
+  document.getElementById('ev-location').value    = '';
+  document.getElementById('ev-desc').value        = '';
+  document.getElementById('ev-attendees').value   = '';
+  document.getElementById('ev-delete-btn').style.display = 'none';
+  // Override save to refresh overview widget
+  window._schedSaveCallback = ovLoadSchedule;
+  document.getElementById('sched-modal').classList.add('open');
+}
+
+/* ── Edit event from overview ────────────────────────────── */
+async function ovEditEvent(id) {
+  var caps = ROLE_CAPS[_userRole] || ROLE_CAPS.viewer;
+  if (!caps.canWrite) { toast('View-only access', true); return; }
+  var db = await _openSchedDB();
+  var ev = await new Promise(function(resolve) {
+    var tx  = db.transaction('events', 'readonly');
+    var req = tx.objectStore('events').get(id);
+    req.onsuccess = function() { resolve(req.result); };
+  });
+  if (!ev) return;
+  document.getElementById('sched-modal-title').textContent = 'Edit Event';
+  document.getElementById('ev-id').value          = id;
+  document.getElementById('ev-date').value        = ev.date        || '';
+  document.getElementById('ev-time').value        = ev.time        || '';
+  document.getElementById('ev-end-time').value    = ev.end_time    || '';
+  document.getElementById('ev-type').value        = ev.type        || 'meeting';
+  document.getElementById('ev-title').value       = ev.title       || '';
+  document.getElementById('ev-location').value    = ev.location    || '';
+  document.getElementById('ev-desc').value        = ev.description || '';
+  document.getElementById('ev-attendees').value   = ev.attendees   || '';
+  document.getElementById('ev-delete-btn').style.display = 'inline-flex';
+  window._schedSaveCallback = ovLoadSchedule;
+  document.getElementById('sched-modal').classList.add('open');
+}
+
+/* ── Delete event from overview ──────────────────────────── */
+async function ovDeleteEvent(id) {
+  if (!confirm('Delete this event?')) return;
+  var db = await _openSchedDB();
+  await new Promise(function(resolve) {
+    var tx = db.transaction('events', 'readwrite');
+    tx.objectStore('events').delete(id).onsuccess = resolve;
+  });
+  toast('Event deleted');
+  ovLoadSchedule();
+}
+
+function _renderAlerts(apps) {
+  const now     = new Date();
+  const alerts  = apps.filter(a => {
+    if (!a.followup_date || a.status === 'Resolved') return false;
+    const due  = new Date(a.followup_date);
+    const diff = Math.ceil((due - now) / (1000 * 60 * 60 * 24));
+    return diff <= 3; // overdue or due within 3 days
+  });
+
+  // Remove existing alert banner if any
+  const existing = document.getElementById('follow-up-alerts');
+  if (existing) existing.remove();
+
+  // Always render the alert placeholder (empty = good, alerts = action needed)
+  const banner = document.createElement('div');
+  banner.id = 'follow-up-alerts';
+
+  if (!alerts.length) {
+    // No alerts — insert nothing visible
+    return;
+  }
+
+  banner.className = 'alert-banner';
+  banner.innerHTML = `
+    <h3><i class="ti ti-alarm"></i>
+      ${alerts.length} Follow-up Alert${alerts.length > 1 ? 's' : ''} — Action Required
+    </h3>
+    ${alerts.map(a => {
+      const due  = new Date(a.followup_date);
+      const diff = Math.ceil((due - now) / (1000 * 60 * 60 * 24));
+      const label = diff < 0
+        ? 'Overdue by ' + Math.abs(diff) + ' day' + (Math.abs(diff) !== 1 ? 's' : '')
+        : diff === 0 ? 'Due today'
+        : 'Due in ' + diff + ' day' + (diff !== 1 ? 's' : '');
+      const cls = diff < 0 ? 'timer-overdue' : 'timer-soon';
+      const rid = _esc(a.ref_id);
+      return '<div class="alert-item" onclick="openAppModal(\"' + rid + '\")">' +
+        '<span class="timer-badge ' + cls + '">' + label + '</span>' +
+        '<b style="font-weight:500">' + rid + '</b>' +
+        '<span style="color:var(--text2);margin-left:6px">' + _esc(a.name) + '</span>' +
+        '<span style="color:var(--muted);margin-left:auto;font-size:10px">' + _esc((a.subject||'').slice(0,45)) + '...</span>' +
+        '</div>';
+    }).join('')}`;
+
+  // Insert before stat grid inside the overview page
+  const statGrid = document.getElementById('stat-grid');
+  if (statGrid && statGrid.parentNode) {
+    statGrid.parentNode.insertBefore(banner, statGrid);
+  }
+}
+
+function _renderLevelChart(byLevel) {
+  const labels = Object.keys(LEVEL_COLORS);
+  const values = labels.map(l => byLevel[l] || 0);
+  const colors = labels.map(l => LEVEL_COLORS[l]);
+  // Safely destroy existing chart instance
+  if (_chartLevel) { try { _chartLevel.destroy(); } catch(e){} _chartLevel = null; }
+  const canvas = document.getElementById('chart-level');
+  if (!canvas) return;
+  _chartLevel = new Chart(canvas, {
+    type: 'bar',
+    data: {
+      labels: labels.map(l => LEVEL_SHORT[l] || l),
+      datasets: [{ data: values, backgroundColor: colors, borderRadius: 5, borderSkipped: false }],
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { ticks: { font: { size: 10 } }, grid: { display: false } },
+        y: { ticks: { font: { size: 10 } }, beginAtZero: true, grace: 1, grid: { color: '#F0EEE8' } },
+      },
+    },
+  });
+}
+
+function _renderStatusChart(byStatus) {
+  const statuses = ['Open','In Progress','Resolved','Escalated'];
+  const values   = statuses.map(s => byStatus[s] || 0);
+  const colors   = statuses.map(s => STATUS_COLORS[s]);
+  if (_chartStatus) { try { _chartStatus.destroy(); } catch(e){} _chartStatus = null; }
+  const legend   = document.getElementById('status-legend');
+  legend.innerHTML = statuses.map((s,i) =>
+    `<span style="display:flex;align-items:center;gap:3px">
+      <span style="width:8px;height:8px;border-radius:2px;background:${colors[i]};display:inline-block"></span>
+      <span style="color:var(--text2)">${s}</span>
+      <b style="color:var(--text)">${values[i]}</b>
+    </span>`
+  ).join('');
+  const statusCanvas = document.getElementById('chart-status');
+  if (!statusCanvas) return;
+  _chartStatus = new Chart(statusCanvas, {
+    type: 'doughnut',
+    data: { labels: statuses, datasets: [{ data: values, backgroundColor: colors, borderWidth: 2 }] },
+    options: {
+      responsive: true, maintainAspectRatio: false, cutout: '65%',
+      plugins: { legend: { display: false } },
+    },
+  });
+}
+
+function _renderProgressBars(byLevel, total) {
+  const levels   = Object.keys(LEVEL_COLORS);
+  const grandTotal = total || Math.max(levels.reduce((s,l)=>s+(byLevel[l]||0),0), 1);
+  const maxCount   = Math.max(...levels.map(l => byLevel[l] || 0), 1);
+  const el = document.getElementById('progress-bars');
+  if (!el) return;
+  el.innerHTML = levels.map(l => {
+    const c   = byLevel[l] || 0;
+    const w   = Math.round(c / maxCount * 100);
+    const pct = grandTotal > 0 ? Math.round(c / grandTotal * 100) : 0;
+    return `<div class="prog-wrap">
+      <div class="prog-hd"><span>${l}</span><span>${c} <span style="font-size:10px;color:var(--muted)">(${pct}%)</span></span></div>
+      <div class="prog-track">
+        <div class="prog-bar" style="width:${w}%;background:${LEVEL_COLORS[l]}"></div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function _renderRecentTable(apps) {
+  const tbody = document.getElementById('recent-body');
+  if (!apps.length) {
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:24px;color:var(--muted)">No applications yet</td></tr>';
+    return;
+  }
+  tbody.innerHTML = apps.map(a => `
+    <tr onclick="openAppModal('${_esc(a.ref_id)}')" style="cursor:pointer" title="Click to view details">
+      <td style="font-family:monospace;font-size:11px;color:var(--muted)">${a.ref_id}</td>
+      <td><b style="font-weight:500">${_esc(a.name)}</b></td>
+      <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text2)">${_esc(a.subject)}</td>
+      <td><span class="badge ${LEVEL_BADGE[a.level]||''}">${LEVEL_SHORT[a.level]||a.level}</span></td>
+      <td><span class="badge ${STATUS_BADGE[a.status]||''}">${a.status}</span></td>
+      <td style="color:var(--muted);font-size:11px">${a.date_received||''}</td>
+    </tr>`).join('');
+}
+
+/* ═══════════════════════════════════════════════════════════
+   APPLICATIONS PAGE
+   ═══════════════════════════════════════════════════════ */
+async function loadApplications() {
+  document.getElementById('apps-body').innerHTML =
+    '<tr class="loading-row"><td colspan="9">Loading...</td></tr>';
+  try {
+    const data = await api('get_applications', {});
+    _allApps = data.applications || [];
+    renderAppsTable();
+  } catch(e) {
+    toast('Error loading applications: ' + e.message, true);
+  }
+}
+
+function renderAppsTable() {
+  const q   = (document.getElementById('f-search')?.value  || '').toLowerCase();
+  const fl  = (document.getElementById('f-level')?.value   || '');
+  const fs  = (document.getElementById('f-status')?.value  || '');
+  const fc  = (document.getElementById('f-cat')?.value     || '');
+
+  let rows = _allApps.filter(a => {
+    if (q  && !((a.name||'')+(a.subject||'')+(a.ref_id||'')).toLowerCase().includes(q)) return false;
+    if (fl && a.level    !== fl) return false;
+    if (fs && a.status   !== fs) return false;
+    if (fc && a.category !== fc) return false;
+    if (_urgentFilter && a.priority !== _urgentFilter) return false;
+    return true;
+  });
+
+  const tbody = document.getElementById('apps-body');
+  if (!rows.length) {
+    tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:32px;color:var(--muted)">No applications found</td></tr>';
+    return;
+  }
+  tbody.innerHTML = rows.map(a => `
+    <tr onclick="openAppModal('${_esc(a.ref_id)}')">
+      <td style="font-family:monospace;font-size:10px;color:var(--muted)">${a.ref_id}</td>
+      <td>
+        <div style="font-weight:500;font-size:12px">${_esc(a.name)}</div>
+        <div style="font-size:10px;color:var(--muted)">${_esc(a.ward||'')}</div>
+      </td>
+      <td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px;color:var(--text2)">${_esc(a.subject)}</td>
+      <td><span class="badge ${LEVEL_BADGE[a.level]||''}">${LEVEL_SHORT[a.level]||a.level}</span></td>
+      <td style="font-size:11px;color:var(--muted)">${a.category||''}</td>
+      <td><span class="badge ${STATUS_BADGE[a.status]||''}">${a.status}</span></td>
+      <td><span class="badge pr-${(a.priority||'Normal').toLowerCase().slice(0,4)}">${a.priority||'Normal'}</span></td>
+      <td style="text-align:center">${a.has_mla_letter
+        ? '<i class="ti ti-check" style="color:var(--green)"></i>'
+        : '<i class="ti ti-clock" style="color:var(--muted)"></i>'}</td>
+      <td style="font-size:10px;color:var(--muted)">${a.date_received||''}</td>
+    </tr>`).join('');
+}
+
+/* ═══════════════════════════════════════════════════════════
+   APPLICATION MODAL
+   ═══════════════════════════════════════════════════════ */
+function openAppModal(refId) {
+  const a = _allApps.find(x => x.ref_id === refId);
+  if (!a) return;
+  document.getElementById('modal-title').textContent = a.ref_id + ' — ' + a.name;
+  const caps = ROLE_CAPS[_userRole] || ROLE_CAPS.viewer;
+
+  // Timer display
+  const timerHtml = _timerBadge(a.followup_date, a.status);
+
+  document.getElementById('modal-body').innerHTML = `
+    ${_dr('Applicant',    a.name)}
+    ${_dr('Phone',        a.phone || '—')}
+    ${_dr('Ward / Area',  a.ward  || '—')}
+    ${_dr('Category',     a.category || '—')}
+    ${_dr('Level',        `<span class="badge ${LEVEL_BADGE[a.level]||''}">${a.level}</span>`)}
+    ${_dr('Forwarded To', a.forwarded_to || '—')}
+    ${_dr('Status',       `<span class="badge ${STATUS_BADGE[a.status]||''}">${a.status}</span>`)}
+    ${_dr('Priority',     a.priority || 'Normal')}
+    ${_dr('Follow-up',    timerHtml)}
+    ${_dr('Date',         a.date_received || '—')}
+    ${_dr('Subject',      `<span style="line-height:1.6">${_esc(a.subject)}</span>`)}
+    ${_dr('Application',  a.has_app_file
+      ? `<span class="file-pill"><i class="ti ti-file-text"></i>${a.app_file_drive_id
+          ? `<a href="${_esc(a.app_file_drive_id)}" target="_blank" style="color:var(--saffron);text-decoration:none">Open in Drive</a>`
+          : 'Filed'}</span>`
+      : '<span style="color:var(--muted)">Not uploaded</span>')}
+    ${_dr('MLA Letter',   a.has_mla_letter
+      ? `<span class="file-pill"><i class="ti ti-file-check"></i>${a.mla_file_drive_id
+          ? `<a href="${_esc(a.mla_file_drive_id)}" target="_blank" style="color:var(--green);text-decoration:none">Open in Drive</a>`
+          : 'Issued'}</span>`
+      : '<span style="color:var(--muted)">Not yet issued</span>')}
+    ${_dr('Notes',      `<span style="color:var(--text2)">${_esc(a.notes      || '—')}</span>`)}
+    ${_dr('Next Steps', `<span style="color:var(--text2)">${_esc(a.next_steps || '—')}</span>`)}
+    ${_dr('Remarks',    `<span style="color:var(--text2)">${_esc(a.remarks    || '—')}</span>`)}
+    <div class="modal-actions">
+      ${caps.canWrite ? `
+        <button class="btn btn-sm" onclick="openEditModal('${refId}')">
+          <i class="ti ti-pencil"></i>Edit
+        </button>
+        ${!a.has_mla_letter ? `<button class="btn btn-primary btn-sm" onclick="doMarkMLA('${refId}')">
+          <i class="ti ti-file-check"></i>Mark MLA Letter Issued</button>` : ''}
+      ` : ''}
+      ${caps.canDelete ? `<button class="btn btn-danger btn-sm" onclick="doDeleteApp('${refId}')">
+        <i class="ti ti-trash"></i>Delete</button>` : ''}
+    </div>`;
+  document.getElementById('app-modal').classList.add('open');
+}
+
+/* Timer badge helper */
+function _timerBadge(followupDate, status) {
+  if (!followupDate || status === 'Resolved') {
+    return '<span style="color:var(--muted);font-size:11px">Not set</span>';
+  }
+  const due  = new Date(followupDate);
+  const now  = new Date();
+  const diff = Math.ceil((due - now) / (1000 * 60 * 60 * 24));
+  if (diff < 0)  return `<span class="timer-badge timer-overdue"><i class="ti ti-alarm"></i>Overdue by ${Math.abs(diff)} day${Math.abs(diff)!==1?'s':''}</span>`;
+  if (diff <= 3) return `<span class="timer-badge timer-soon"><i class="ti ti-clock"></i>Due in ${diff} day${diff!==1?'s':''}</span>`;
+  return `<span class="timer-badge timer-ok"><i class="ti ti-calendar"></i>${followupDate}</span>`;
+}
+
+function _dr(label, val) {
+  return `<div class="detail-row">
+    <span class="detail-label">${label}</span>
+    <span class="detail-val">${val}</span>
+  </div>`;
+}
+
+function closeModal() { document.getElementById('app-modal').classList.remove('open'); }
+
+async function updateAppStatus(refId, status) {
+  try {
+    await api('update_application', { ref_id: refId, status: status });
+    const app = _allApps.find(a => a.ref_id === refId);
+    if (app) app.status = status;
+    toast('Status updated to ' + status);
+    closeModal();
+    renderAppsTable();
+  } catch(e) { toast('Update failed: ' + e.message, true); }
+}
+
+async function doMarkMLA(refId) {
+  try {
+    await api('mark_mla_letter', { ref_id: refId });
+    const app = _allApps.find(a => a.ref_id === refId);
+    if (app) app.has_mla_letter = true;
+    toast('MLA letter marked as issued');
+    closeModal();
+  } catch(e) { toast('Error: ' + e.message, true); }
+}
+
+async function doDeleteApp(refId) {
+  if (!confirm('Delete application ' + refId + '? This cannot be undone.')) return;
+  try {
+    await api('delete_application', { ref_id: refId });
+    _allApps = _allApps.filter(a => a.ref_id !== refId);
+    toast('Application deleted');
+    closeModal();
+    renderAppsTable();
+  } catch(e) { toast('Delete failed: ' + e.message, true); }
+}
+
+/* ── EDIT MODAL ─────────────────────────────────────────────── */
+function openEditModal(refId) {
+  const a = _allApps.find(x => x.ref_id === refId);
+  if (!a) return;
+  document.getElementById('edit-modal-title').textContent = 'Edit — ' + a.ref_id;
+  document.getElementById('e-ref-id').value    = refId;
+  document.getElementById('e-status').value    = a.status    || 'Open';
+  document.getElementById('e-priority').value  = a.priority  || 'Normal';
+  document.getElementById('e-category').value  = a.category  || 'Other';
+  document.getElementById('e-fwd').value       = a.forwarded_to || '';
+  document.getElementById('e-notes').value     = a.notes     || '';
+  document.getElementById('e-followup').value   = a.followup_date || '';
+  document.getElementById('e-next-steps').value = a.next_steps || '';
+  document.getElementById('e-remarks').value    = a.remarks     || '';
+  // Clear drive fields (fresh selection)
+  document.getElementById('e-app-drive-url').value = '';
+  document.getElementById('e-mla-drive-url').value = '';
+  // Show existing file status
+  document.getElementById('e-app-file-label').textContent =
+    a.app_file_drive_id ? '✓ Already linked — click to replace' : '';
+  document.getElementById('e-mla-file-label').textContent =
+    a.mla_file_drive_id ? '✓ Already linked — click to replace' : '';
+  closeModal();
+  document.getElementById('edit-modal').classList.add('open');
+}
+
+function closeEditModal() {
+  document.getElementById('edit-modal').classList.remove('open');
+}
+
+async function saveEdit() {
+  const refId = document.getElementById('e-ref-id').value;
+  if (!refId) { toast('No application selected', true); return; }
+
+  // Read all values BEFORE closing the modal
+  const newStatus    = document.getElementById('e-status').value;
+  const newPriority  = document.getElementById('e-priority').value;
+  const newCategory  = document.getElementById('e-category').value;
+  const newFwd       = document.getElementById('e-fwd').value.trim();
+  const newNotes     = document.getElementById('e-notes').value.trim();
+  const newFollowup   = document.getElementById('e-followup').value;
+  const newNextSteps  = document.getElementById('e-next-steps').value.trim();
+  const newRemarks    = document.getElementById('e-remarks').value.trim();
+  const appDriveUrl   = document.getElementById('e-app-drive-url').value;
+  const mlaDriveUrl  = document.getElementById('e-mla-drive-url').value;
+
+  const payload = {
+      ref_id:        refId,
+      status:        newStatus,
+      priority:      newPriority,
+      category:      newCategory,
+      forwarded_to:  newFwd,
+      notes:         newNotes,
+      followup_date: newFollowup,
+      next_steps:    newNextSteps,
+      remarks:       newRemarks,
+    };
+  if (appDriveUrl) { payload.app_drive_url = appDriveUrl; payload.has_app_file = true; }
+  if (mlaDriveUrl) { payload.mla_drive_url = mlaDriveUrl; payload.has_mla_letter = true; }
+
+  try {
+    // 1. Update local cache IMMEDIATELY so UI is responsive
+    const app = _allApps.find(function(a) { return a.ref_id === refId; });
+    if (app) {
+      app.status        = newStatus;
+      app.priority      = newPriority;
+      app.category      = newCategory;
+      app.forwarded_to  = newFwd;
+      app.notes         = newNotes;
+      app.followup_date = newFollowup;
+      app.next_steps    = newNextSteps;
+      app.remarks       = newRemarks;
+      if (appDriveUrl) { app.app_file_drive_id = appDriveUrl; app.has_app_file = true; }
+      if (mlaDriveUrl) { app.mla_file_drive_id = mlaDriveUrl; app.has_mla_letter = true; }
+    }
+
+    // 2. Close modal and refresh UI immediately (don't wait for server)
+    closeEditModal();
+    renderAppsTable();
+
+    // 3. Send to server
+    await api('update_application', payload);
+    toast('Application ' + refId + ' updated successfully');
+
+    // 4. Reload overview stats (don't reload allApps — we already updated locally)
+    const statsData = await api('get_stats');
+    _updateStatCards(statsData);
+    _renderAlerts(_allApps);
+
+  } catch(e) {
+    toast('Save failed — ' + e.message + '. Please try again.', true);
+    // Revert local cache on failure by reloading from server
+    loadApplications();
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   NEW APPLICATION FORM
+   ═══════════════════════════════════════════════════════ */
+async function submitApp() {
+  const name  = document.getElementById('n-name').value.trim();
+  const subj  = document.getElementById('n-subj').value.trim();
+  const level = document.getElementById('n-level').value;
+  if (!name || !subj) { toast('Name and subject are required', true); return; }
+
+  try {
+    const appDriveUrl  = document.getElementById('n-app-drive-url').value;
+    const mlaDriveUrl  = document.getElementById('n-mla-drive-url').value;
+    const appFileName  = document.getElementById('n-app-file-name-val').value;
+    const mlaFileName  = document.getElementById('n-mla-file-name-val').value;
+
+    const result = await api('add_application', {
+      name:               name,
+      phone:              document.getElementById('n-phone').value.trim(),
+      ward:               document.getElementById('n-ward').value.trim(),
+      category:           document.getElementById('n-cat').value,
+      level:              level,
+      forwarded_to:       document.getElementById('n-fwd').value.trim(),
+      subject:            subj,
+      status:             document.getElementById('n-status').value,
+      priority:           document.getElementById('n-priority').value,
+      notes:              document.getElementById('n-notes').value.trim(),
+      followup_date:      document.getElementById('n-followup').value,
+      next_steps:         document.getElementById('n-next-steps').value.trim(),
+      remarks:            document.getElementById('n-remarks').value.trim(),
+      has_app_file:       !!appDriveUrl,
+      app_drive_url:      appDriveUrl,
+      app_file_name:      appFileName,
+      has_mla_letter:     !!mlaDriveUrl,
+      mla_drive_url:      mlaDriveUrl,
+      mla_file_name:      mlaFileName,
+      auto_add_constituent: true,
+    });
+    if (result.offline) {
+      toast('Saved offline — will sync when connected');
+    } else {
+      toast('Application saved — ' + result.ref_id);
+    }
+    clearAppForm();
+    navTo('applications', document.querySelector('[onclick*=applications]'));
+    await loadApplications();
+  } catch(e) { toast('Save failed: ' + e.message, true); }
+}
+
+function clearAppForm() {
+  // Reset text inputs and textareas
+  ['n-name','n-phone','n-ward','n-fwd','n-subj','n-notes','n-followup',
+   'n-app-drive-url','n-mla-drive-url','n-app-file-name-val','n-mla-file-name-val',
+   'n-next-steps','n-remarks'].forEach(function(id) {
+    var el = document.getElementById(id);
+    if (el) el.value = '';
+  });
+  // Reset select dropdowns to first option
+  ['n-cat','n-level','n-status','n-priority'].forEach(function(id) {
+    var el = document.getElementById(id);
+    if (el) el.selectedIndex = 0;
+  });
+  // Clear file labels
+  var al = document.getElementById('n-app-file-name');
+  var ml = document.getElementById('n-mla-file-name');
+  if (al) al.textContent = '';
+  if (ml) ml.textContent = '';
+}
+
+function previewFile(inputId, labelId) {
+  const f = document.getElementById(inputId).files[0];
+  if (f) {
+    document.getElementById(labelId).textContent =
+      '✓ ' + f.name + ' (' + Math.round(f.size/1024) + ' KB)';
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   CONSTITUENTS
+   ═══════════════════════════════════════════════════════ */
+async function loadConstituents() {
+  document.getElementById('ppl-grid').innerHTML =
+    '<div class="empty" style="grid-column:1/-1"><i class="ti ti-loader"></i><p>Loading...</p></div>';
+  try {
+    const data = await api('get_constituents', {});
+    _allConsts = data.constituents || [];
+    renderConstituents();
+  } catch(e) { toast('Error loading constituents: ' + e.message, true); }
+}
+
+function renderConstituents() {
+  const q = (document.getElementById('c-search')?.value || '').toLowerCase();
+  const list = q
+    ? _allConsts.filter(c =>
+        (c.name||'').toLowerCase().includes(q) ||
+        (c.ward||'').toLowerCase().includes(q) ||
+        (c.phone||'').includes(q))
+    : _allConsts;
+
+  const grid = document.getElementById('ppl-grid');
+  if (!list.length) {
+    grid.innerHTML = '<div class="empty" style="grid-column:1/-1"><i class="ti ti-users"></i><p>No constituents found</p></div>';
+    return;
+  }
+  grid.innerHTML = list.map(c => {
+    const initials = (c.name||'?').split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
+    return `<div class="ppl-card" onclick="openConstModal('${_esc(c.constituent_id)}')">
+      <div class="ppl-avatar">${initials}</div>
+      <div class="ppl-name">${_esc(c.name)}</div>
+      <div class="ppl-sub"><i class="ti ti-map-pin" style="font-size:10px"></i>${_esc(c.ward||'—')}</div>
+      <div class="ppl-sub"><i class="ti ti-phone" style="font-size:10px"></i>${_esc(c.phone||'—')}</div>
+      ${c.application_count ? `<div class="ppl-apps"><i class="ti ti-folder"></i> ${c.application_count} application${c.application_count>1?'s':''}</div>` : ''}
+    </div>`;
+  }).join('');
+}
+
+function openConstModal(id) {
+  const c = _allConsts.find(x => x.constituent_id === id);
+  if (!c) return;
+  document.getElementById('const-modal-title').textContent = c.name;
+  const linked = _allApps.filter(a => a.phone && a.phone === c.phone);
+  document.getElementById('const-modal-body').innerHTML = `
+    ${_dr('Name',        c.name)}
+    ${_dr('Phone',       c.phone || '—')}
+    ${_dr('Ward / Area', c.ward  || '—')}
+    ${_dr('Voter ID',    c.voter_id || '—')}
+    ${_dr('Address',     c.address || '—')}
+    ${_dr('Notes',       `<span style="color:var(--text2)">${c.notes||'—'}</span>`)}
+    ${linked.length ? `
+      <div style="margin-top:14px">
+        <div style="font-size:10px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">
+          Applications (${linked.length})
+        </div>
+        ${linked.map(a => `
+          <div style="padding:8px 10px;border:1px solid var(--border);border-radius:var(--radius);
+            margin-bottom:6px;font-size:12px;cursor:pointer"
+            onclick="closeConstModal();setTimeout(()=>openAppModal('${_esc(a.ref_id)}'),100)">
+            <b style="font-weight:500">${a.ref_id}</b> —
+            <span style="color:var(--text2)">${_esc(a.subject||'').slice(0,60)}...</span>
+            <span class="badge ${STATUS_BADGE[a.status]||''}" style="float:right">${a.status}</span>
+          </div>`).join('')}
+      </div>` : ''}`;
+  document.getElementById('const-modal').classList.add('open');
+}
+
+function closeConstModal() { document.getElementById('const-modal').classList.remove('open'); }
+
+/* ═══════════════════════════════════════════════════════════
+   NEW CONSTITUENT
+   ═══════════════════════════════════════════════════════ */
+async function submitConstituent() {
+  const name = document.getElementById('c-name').value.trim();
+  if (!name) { toast('Name is required', true); return; }
+  try {
+    const result = await api('add_constituent', {
+      name:     name,
+      phone:    document.getElementById('c-phone').value.trim(),
+      ward:     document.getElementById('c-ward').value.trim(),
+      voter_id: document.getElementById('c-voter').value.trim(),
+      address:  document.getElementById('c-addr').value.trim(),
+      notes:    document.getElementById('c-notes').value.trim(),
+    });
+    toast('Constituent saved — ' + result.constituent_id);
+    ['c-name','c-phone','c-ward','c-voter','c-addr','c-notes'].forEach(id => {
+      document.getElementById(id).value = '';
+    });
+    navTo('constituents', document.querySelector('[onclick*=constituents]'));
+    await loadConstituents();
+  } catch(e) { toast('Save failed: ' + e.message, true); }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   MANAGE USERS
+   ═══════════════════════════════════════════════════════ */
+async function loadUsers() {
+  try {
+    const data = await api('get_users', {});
+    const users = data.users || [];
+    const tbody = document.getElementById('users-body');
+    if (!users.length) {
+      tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:24px;color:var(--muted)">No users yet</td></tr>';
+      return;
+    }
+    tbody.innerHTML = users.map(u => `
+      <tr>
+        <td style="font-weight:500">${_esc(u.name||'')}</td>
+        <td style="font-size:11px;color:var(--muted)">${_esc(u.email||'')}</td>
+        <td><span class="badge ${u.role==='admin'?'st-esc':u.role==='data_entry'?'st-wip':'st-done'}">${u.role||''}</span></td>
+        <td>${u.active ? '<i class="ti ti-check" style="color:var(--green)"></i>' : '<i class="ti ti-x" style="color:var(--red)"></i>'}</td>
+        <td>
+          ${u.active ? `<button class="btn btn-sm btn-danger" onclick="deactivateUser('${_esc(u.email)}')">Deactivate</button>` : ''}
+        </td>
+      </tr>`).join('');
+  } catch(e) { toast('Error loading users: ' + e.message, true); }
+}
+
+async function submitUser() {
+  const email = document.getElementById('u-email').value.trim();
+  const name  = document.getElementById('u-name').value.trim();
+  const role  = document.getElementById('u-role').value;
+  if (!email) { toast('Email is required', true); return; }
+  try {
+    await api('add_user', { email, name, role });
+    toast('User added: ' + email);
+    document.getElementById('u-email').value = '';
+    document.getElementById('u-name').value  = '';
+    await loadUsers();
+  } catch(e) { toast('Error: ' + e.message, true); }
+}
+
+async function deactivateUser(email) {
+  if (!confirm('Deactivate ' + email + '? They will no longer be able to log in.')) return;
+  try {
+    await api('deactivate_user', { email });
+    toast('User deactivated: ' + email);
+    await loadUsers();
+  } catch(e) { toast('Error: ' + e.message, true); }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   EXPORT
+   ═══════════════════════════════════════════════════════ */
+/* ═══════════════════════════════════════════════════════════
+   GOOGLE DRIVE PICKER
+   ═══════════════════════════════════════════════════════ */
+
+// Your Google Cloud project OAuth Client ID (Web client)
+// Get from: console.cloud.google.com → APIs & Services → Credentials
+// Must have Drive API enabled and your Netlify domain as authorised origin
+const GOOGLE_CLIENT_ID = '621608397623-tal0ddq13ud73toip03ljkpaog7ammtk.apps.googleusercontent.com';
+const GOOGLE_API_KEY   = 'AIzaSyA_q-Q7JXOzBidL0G5g_IY3YsiyUXsflq8'; // same as Firebase
+
+let _pickerTarget    = null;
+let _pickerApiLoaded = false;
+let _oauthToken      = null;
+
+/* ── Load the Picker API as soon as gapi is available ── */
+function loadPickerApi() {
+  if (typeof gapi === 'undefined' || _pickerApiLoaded) return;
+  gapi.load('auth2:picker', {
+    callback: function() {
+      _pickerApiLoaded = true;
+      // Pre-initialise auth2 so token is ready on first click
+      gapi.auth2.init({
+        client_id: GOOGLE_CLIENT_ID,
+        scope:     'https://www.googleapis.com/auth/drive.readonly',
+      }).then(function(auth2) {
+        if (auth2.isSignedIn.get()) {
+          _oauthToken = auth2.currentUser.get().getAuthResponse(true).access_token;
+        }
+      }).catch(function(){});
+    },
+  });
+}
+
+/* ── Main entry point called by upload zone click ── */
+function openDrivePicker(target) {
+  _pickerTarget = target;
+
+  if (!_pickerApiLoaded || typeof google === 'undefined' || !google.picker) {
+    // Picker not ready — use manual fallback immediately
+    _showManualDriveInput(target);
+    return;
+  }
+
+  const auth2 = gapi.auth2 && gapi.auth2.getAuthInstance
+    ? gapi.auth2.getAuthInstance() : null;
+
+  if (auth2 && auth2.isSignedIn.get()) {
+    _oauthToken = auth2.currentUser.get().getAuthResponse(true).access_token;
+    _buildPicker(_oauthToken, target);
+  } else if (auth2) {
+    // Sign in to get Drive token
+    auth2.signIn({ scope: 'https://www.googleapis.com/auth/drive.readonly' })
+      .then(function(googleUser) {
+        _oauthToken = googleUser.getAuthResponse(true).access_token;
+        _buildPicker(_oauthToken, target);
+      })
+      .catch(function() { _showManualDriveInput(target); });
+  } else {
+    _showManualDriveInput(target);
+  }
+}
+
+/* ── Build and show the picker ── */
+function _buildPicker(oauthToken, target) {
+  const view = new google.picker.DocsView(google.picker.ViewId.DOCS)
+    .setIncludeFolders(false)
+    .setMimeTypes('application/pdf,image/jpeg,image/png,image/jpg');
+
+  const uploadView = new google.picker.DocsUploadView()
+    .setIncludeFolders(true);
+
+  const picker = new google.picker.PickerBuilder()
+    .setTitle(target === 'app' ? 'Select Application Document' : 'Select MLA Letter')
+    .addView(view)
+    .addView(uploadView)
+    .enableFeature(google.picker.Feature.NAV_HIDDEN)
+    .setOAuthToken(oauthToken)
+    .setDeveloperKey(GOOGLE_API_KEY)
+    .setOrigin(window.location.protocol + '//' + window.location.host)
+    .setCallback(function(data) { _pickerCallback(data, target); })
+    .build();
+
+  picker.setVisible(true);
+}
+
+/* ── Handle picker selection ── */
+function _pickerCallback(data, target) {
+  if (data.action !== google.picker.Action.PICKED) return;
+  const doc      = data.docs[0];
+  const fileUrl  = 'https://drive.google.com/file/d/' + doc.id + '/view?usp=sharing';
+  const fileName = doc.name;
+  _setFileFields(target, fileUrl, fileName);
+  toast('✓ File linked: ' + fileName);
+}
+
+/* ── Set the hidden fields and label ── */
+function _setFileFields(target, url, name) {
+  if (target === 'app') {
+    document.getElementById('n-app-drive-url').value      = url;
+    document.getElementById('n-app-file-name-val').value  = name;
+    document.getElementById('n-app-file-name').textContent = '✓ ' + name;
+  } else {
+    document.getElementById('n-mla-drive-url').value      = url;
+    document.getElementById('n-mla-file-name-val').value  = name;
+    document.getElementById('n-mla-file-name').textContent = '✓ ' + name;
+  }
+}
+
+/* ── Manual fallback: paste a Drive sharing URL ── */
+function _showManualDriveInput(target) {
+  var label    = target === 'app' ? 'Application document' : 'MLA letter';
+  var msg      = label + ' - paste the Google Drive sharing link:\n\n'
+    + 'How to get the link:\n'
+    + '1. Open Google Drive\n'
+    + '2. Right-click the file > Share > Copy link\n'
+    + '3. Paste it here';
+  var driveUrl = prompt(msg);
+  if (!driveUrl) return;
+  if (driveUrl.indexOf('drive.google.com') === -1 && driveUrl.indexOf('docs.google.com') === -1) {
+    toast('Not a valid Google Drive link', true);
+    return;
+  }
+  var fileName = prompt('File name (e.g. application.pdf):') || 'document';
+  _setFileFields(target, driveUrl, fileName);
+  toast('Drive link saved - ' + fileName);
+}
+
+function openEditDrivePicker(target) {
+  _pickerTarget = 'edit-' + target;
+  if (!_pickerApiLoaded || typeof google === 'undefined') {
+    _showEditManualInput(target);
+    return;
+  }
+  const auth2 = gapi.auth2.getAuthInstance();
+  if (auth2 && auth2.isSignedIn.get()) {
+    const tok = auth2.currentUser.get().getAuthResponse(true).access_token;
+    _buildPickerForEdit(tok, target);
+  } else {
+    _showEditManualInput(target);
+  }
+}
+
+function _buildPickerForEdit(token, target) {
+  const view = new google.picker.DocsView(google.picker.ViewId.DOCS)
+    .setMimeTypes('application/pdf,image/jpeg,image/png,image/jpg');
+  const picker = new google.picker.PickerBuilder()
+    .setTitle(target === 'app' ? 'Select Application Document' : 'Select MLA Letter')
+    .addView(view)
+    .setOAuthToken(token)
+    .setDeveloperKey(GOOGLE_API_KEY)
+    .setOrigin(window.location.protocol + '//' + window.location.host)
+    .setCallback(function(data) {
+      if (data.action !== google.picker.Action.PICKED) return;
+      const doc = data.docs[0];
+      const url = 'https://drive.google.com/file/d/' + doc.id + '/view?usp=sharing';
+      if (target === 'app') {
+        document.getElementById('e-app-drive-url').value = url;
+        document.getElementById('e-app-file-label').textContent = '✓ ' + doc.name;
+      } else {
+        document.getElementById('e-mla-drive-url').value = url;
+        document.getElementById('e-mla-file-label').textContent = '✓ ' + doc.name;
+      }
+      toast('✓ File linked: ' + doc.name);
+    })
+    .build();
+  picker.setVisible(true);
+}
+
+function _showEditManualInput(target) {
+  const driveUrl = prompt('Paste Google Drive sharing link for the ' +
+    (target === 'app' ? 'application document' : 'MLA letter') + ':');
+  if (!driveUrl || !driveUrl.includes('drive.google.com')) {
+    if (driveUrl) toast('Not a valid Google Drive link', true);
+    return;
+  }
+  const fileName = prompt('File name:') || 'document';
+  if (target === 'app') {
+    document.getElementById('e-app-drive-url').value = driveUrl;
+    document.getElementById('e-app-file-label').textContent = '✓ ' + fileName;
+  } else {
+    document.getElementById('e-mla-drive-url').value = driveUrl;
+    document.getElementById('e-mla-file-label').textContent = '✓ ' + fileName;
+  }
+  toast('✓ Drive link saved');
+}
+
+// Load picker API after page ready
+document.addEventListener('DOMContentLoaded', function() {
+  setTimeout(function() {
+    if (typeof gapi !== 'undefined') loadPickerApi();
+  }, 1500);
+});
+
+/* ── STAT CARD UPDATE HELPER ───────────────────────────────── */
+function _updateStatCards(data) {
+  var bs = data.by_status   || {};
+  var bp = data.by_priority || {};
+  // Use explicit fields if available (new backend), fall back to by_status
+  var resolved   = data.resolved    !== undefined ? data.resolved    : (bs['Resolved']   || 0);
+  var open       = data.open        !== undefined ? data.open        : (bs['Open']       || 0);
+  var inProgress = data.in_progress !== undefined ? data.in_progress : (bs['In Progress']|| 0);
+  var escalated  = data.escalated   !== undefined ? data.escalated   : (bs['Escalated']  || 0);
+  var urgent     = data.urgent      !== undefined ? data.urgent      : (bp['Urgent']     || 0);
+  var total      = data.total       || 0;
+
+  document.getElementById('s-total').textContent      = total;
+  document.getElementById('s-open').textContent       = open;
+  document.getElementById('s-inprogress').textContent = inProgress;
+  document.getElementById('s-resolved').textContent   = resolved;
+  document.getElementById('s-escalated').textContent  = escalated;
+  document.getElementById('s-urgent').textContent     = urgent;
+
+  // Charts are only rendered by loadOverview() — not here
+  // to prevent double-render corruption of Chart.js canvases
+}
+
+/* ── STAT CARD NAVIGATION ──────────────────────────────────── */
+function filterAndNav(status) {
+  // Switch to applications page
+  navTo('applications', document.querySelector('[onclick*="applications"]'));
+  // Apply status filter
+  setTimeout(function() {
+    var sel = document.getElementById('f-status');
+    if (sel) { sel.value = status; renderAppsTable(); }
+  }, 100);
+}
+
+function filterAndNavPriority(priority) {
+  navTo('applications', document.querySelector('[onclick*="applications"]'));
+  setTimeout(function() {
+    var sel = document.getElementById('f-status');
+    if (sel) sel.value = '';
+    // Filter by urgent in the search box
+    var search = document.getElementById('f-search');
+    // Use a custom priority filter approach - show urgent via table render
+    _urgentFilter = priority;
+    renderAppsTable();
+    _urgentFilter = null;
+  }, 100);
+}
+
+// Temporary priority filter used by stat card click
+var _urgentFilter = null;
+
+async function doExport() {
+  try {
+    const data = await api('get_applications', {});
+    const apps = data.applications || [];
+    const headers = ['Ref ID','Name','Phone','Ward','Category','Level',
+      'Forwarded To','Subject','Status','Priority','Date','App Filed','MLA Letter','Notes'];
+    const rows = apps.map(a => [
+      a.ref_id, a.name, a.phone, a.ward, a.category, a.level,
+      a.forwarded_to, a.subject, a.status, a.priority, a.date_received,
+      a.has_app_file    ? 'Yes':'No',
+      a.has_mla_letter  ? 'Yes':'No',
+      a.notes,
+    ].map(v => '"' + String(v==null?'':v).replace(/"/g,'""') + '"').join(','));
+    const csv  = [headers.join(','), ...rows].join('\r\n');
+    const blob = new Blob([csv], { type:'text/csv;charset=utf-8;' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href = url; a.download = 'kochi_applications_' + new Date().toISOString().slice(0,10) + '.csv';
+    a.click(); URL.revokeObjectURL(url);
+    toast('CSV exported — ' + apps.length + ' applications');
+  } catch(e) { toast('Export failed: ' + e.message, true); }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   UTILITIES
+   ═══════════════════════════════════════════════════════ */
+function toast(msg, isErr) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = 'toast ' + (isErr ? 'toast-err' : 'toast-ok');
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 3500);
+}
+
+function _esc(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+</script>
+  <!-- ═══════════════════════════════════════════════════════════
+       EXTERNAL SDKS — loaded last so inline scripts can use them
+       ═══════════════════════════════════════════════════════ -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+  <script src="https://apis.google.com/js/api.js" async defer></script>
+</body>
+</html>
+<script>
+/* ═══════════════════════════════════════════════════════════
+   DAILY SCHEDULE MODULE
+   - In-browser IndexedDB storage (no extra Apps Script needed)
+   - Admin/data_entry: add, edit, delete events
+   - Viewer: read-only view
+   ═══════════════════════════════════════════════════════ */
+
+const SCHED_DB   = 'kochi_schedule';
+const SCHED_STORE= 'events';
+const TYPE_COLORS= {
+  meeting:  '#185FA5', visit: '#3B6D11', assembly: '#534AB7',
+  office:   '#BA7517', personal: '#888780', other: '#888780',
+};
+
+/* ── Open schedule IndexedDB ─────────────────────────────── */
+function _openSchedDB() {
+  return new Promise(function(resolve, reject) {
+    var req = indexedDB.open(SCHED_DB, 1);
+    req.onupgradeneeded = function(e) {
+      var db    = e.target.result;
+      var store = db.createObjectStore(SCHED_STORE, { keyPath:'id', autoIncrement:true });
+      store.createIndex('date', 'date');
+    };
+    req.onsuccess = function(e) { resolve(e.target.result); };
+    req.onerror   = function(e) { reject(e.target.error); };
+  });
+}
+
+/* ── Initialise schedule page ────────────────────────────── */
+function initSchedule() {
+  // Set date picker to today if empty
+  var dp = document.getElementById('sched-date');
+  if (!dp.value) {
+    dp.value = new Date().toISOString().slice(0, 10);
+  }
+  loadSchedule();
+}
+
+/* ── Load events for selected date ──────────────────────── */
+async function loadSchedule() {
+  var date = document.getElementById('sched-date').value;
+  if (!date) { toast('Please select a date', true); return; }
+
+  var db = await _openSchedDB();
+  var events = await new Promise(function(resolve) {
+    var tx    = db.transaction(SCHED_STORE, 'readonly');
+    var idx   = tx.objectStore(SCHED_STORE).index('date');
+    var req   = idx.getAll(date);
+    req.onsuccess = function() { resolve(req.result); };
+  });
+
+  // Sort by time
+  events.sort(function(a, b) { return (a.time || '').localeCompare(b.time || ''); });
+
+  var list  = document.getElementById('sched-list');
+  var empty = document.getElementById('sched-empty');
+  var caps  = ROLE_CAPS[_userRole] || ROLE_CAPS.viewer;
+
+  if (!events.length) {
+    list.innerHTML  = '';
+    empty.style.display = 'block';
+    return;
+  }
+  empty.style.display = 'none';
+
+  list.innerHTML = events.map(function(ev) {
+    var color   = TYPE_COLORS[ev.type] || '#888780';
+    var typeCls = 'type-' + (ev.type || 'other');
+    var endHtml = ev.end_time ? '<div class="sched-end">' + ev.end_time + '</div>' : '';
+    var locHtml = ev.location
+      ? '<span><i class="ti ti-map-pin"></i> ' + _esc(ev.location) + '</span>' : '';
+    var attHtml = ev.attendees
+      ? '<span><i class="ti ti-users"></i> ' + _esc(ev.attendees) + '</span>' : '';
+    var descHtml = ev.description
+      ? '<div style="font-size:11px;color:var(--text2);margin-top:6px;line-height:1.5">' + _esc(ev.description) + '</div>' : '';
+    var editBtn = caps.canWrite
+      ? '<button class="btn btn-sm" onclick="openEditEvent(' + ev.id + ')" style="font-size:10px"><i class="ti ti-pencil"></i>Edit</button>' : '';
+
+    return '<div class="sched-event">'
+      + '<div class="sched-time-col">'
+      +   '<div class="sched-time">' + (ev.time || '--:--') + '</div>'
+      +   endHtml
+      + '</div>'
+      + '<div class="sched-bar" style="background:' + color + '"></div>'
+      + '<div class="sched-body">'
+      +   '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px">'
+      +     '<span class="sched-type-badge ' + typeCls + '">' + (ev.type || 'other') + '</span>'
+      +     '<div class="sched-title">' + _esc(ev.title || 'Untitled') + '</div>'
+      +   '</div>'
+      +   '<div class="sched-meta">' + locHtml + attHtml + '</div>'
+      +   descHtml
+      +   (caps.canWrite ? '<div class="sched-actions">' + editBtn + '</div>' : '')
+      + '</div>'
+      + '</div>';
+  }).join('');
+}
+
+/* ── Open add event modal ────────────────────────────────── */
+function openAddEvent() {
+  var caps = ROLE_CAPS[_userRole] || ROLE_CAPS.viewer;
+  if (!caps.canWrite) { toast('View-only access — cannot add events', true); return; }
+
+  document.getElementById('sched-modal-title').textContent = 'Add Event';
+  document.getElementById('ev-id').value          = '';
+  document.getElementById('ev-date').value        = document.getElementById('sched-date').value || new Date().toISOString().slice(0,10);
+  document.getElementById('ev-time').value        = '';
+  document.getElementById('ev-end-time').value    = '';
+  document.getElementById('ev-type').value        = 'meeting';
+  document.getElementById('ev-title').value       = '';
+  document.getElementById('ev-location').value    = '';
+  document.getElementById('ev-desc').value        = '';
+  document.getElementById('ev-attendees').value   = '';
+  document.getElementById('ev-delete-btn').style.display = 'none';
+  document.getElementById('sched-modal').classList.add('open');
+}
+
+/* ── Open edit event modal ───────────────────────────────── */
+async function openEditEvent(id) {
+  var caps = ROLE_CAPS[_userRole] || ROLE_CAPS.viewer;
+  if (!caps.canWrite) { toast('View-only access', true); return; }
+
+  var db = await _openSchedDB();
+  var ev = await new Promise(function(resolve) {
+    var tx  = db.transaction(SCHED_STORE, 'readonly');
+    var req = tx.objectStore(SCHED_STORE).get(id);
+    req.onsuccess = function() { resolve(req.result); };
+  });
+  if (!ev) return;
+
+  document.getElementById('sched-modal-title').textContent = 'Edit Event';
+  document.getElementById('ev-id').value          = id;
+  document.getElementById('ev-date').value        = ev.date        || '';
+  document.getElementById('ev-time').value        = ev.time        || '';
+  document.getElementById('ev-end-time').value    = ev.end_time    || '';
+  document.getElementById('ev-type').value        = ev.type        || 'meeting';
+  document.getElementById('ev-title').value       = ev.title       || '';
+  document.getElementById('ev-location').value    = ev.location    || '';
+  document.getElementById('ev-desc').value        = ev.description || '';
+  document.getElementById('ev-attendees').value   = ev.attendees   || '';
+  document.getElementById('ev-delete-btn').style.display = 'inline-flex';
+  document.getElementById('sched-modal').classList.add('open');
+}
+
+/* ── Save event (add or edit) ────────────────────────────── */
+async function saveEvent() {
+  var title = document.getElementById('ev-title').value.trim();
+  var date  = document.getElementById('ev-date').value;
+  var time  = document.getElementById('ev-time').value;
+  if (!title) { toast('Title is required', true); return; }
+  if (!date)  { toast('Date is required',  true); return; }
+
+  var ev = {
+    date:        date,
+    time:        time,
+    end_time:    document.getElementById('ev-end-time').value,
+    type:        document.getElementById('ev-type').value,
+    title:       title,
+    location:    document.getElementById('ev-location').value.trim(),
+    description: document.getElementById('ev-desc').value.trim(),
+    attendees:   document.getElementById('ev-attendees').value.trim(),
+    added_by:    _fbUser ? _fbUser.email : 'unknown',
+    updated_at:  new Date().toISOString(),
+  };
+
+  var existingId = document.getElementById('ev-id').value;
+  var db = await _openSchedDB();
+
+  await new Promise(function(resolve, reject) {
+    var tx    = db.transaction(SCHED_STORE, 'readwrite');
+    var store = tx.objectStore(SCHED_STORE);
+    var req;
+    if (existingId) {
+      ev.id = parseInt(existingId);
+      req   = store.put(ev);
+    } else {
+      req = store.add(ev);
+    }
+    req.onsuccess = resolve;
+    req.onerror   = function(e) { reject(e.target.error); };
+  });
+
+  toast(existingId ? 'Event updated' : 'Event added');
+  closeSchedModal();
+
+  // Refresh whichever schedule view triggered this save
+  if (window._schedSaveCallback) {
+    window._schedSaveCallback();
+    window._schedSaveCallback = null;
+  } else {
+    // Reload full schedule page if on that page
+    var currentDate = document.getElementById('sched-date') && document.getElementById('sched-date').value;
+    if (currentDate === date) loadSchedule();
+  }
+}
+
+/* ── Delete event ────────────────────────────────────────── */
+async function deleteEvent() {
+  var id = parseInt(document.getElementById('ev-id').value);
+  if (!id) return;
+  if (!confirm('Delete this event? This cannot be undone.')) return;
+
+  var db = await _openSchedDB();
+  await new Promise(function(resolve) {
+    var tx = db.transaction(SCHED_STORE, 'readwrite');
+    tx.objectStore(SCHED_STORE).delete(id).onsuccess = resolve;
+  });
+
+  toast('Event deleted');
+  closeSchedModal();
+  if (window._schedSaveCallback) {
+    window._schedSaveCallback();
+    window._schedSaveCallback = null;
+  } else {
+    loadSchedule();
+  }
+}
+
+/* ── Close schedule modal ────────────────────────────────── */
+function closeSchedModal() {
+  document.getElementById('sched-modal').classList.remove('open');
+}
+</script>
+<script>
+/* ════════════════════════════════════════════════════════════
+   UPCOMING 5-DAY SCHEDULE TILE
+   ════════════════════════════════════════════════════════════ */
+
+async function _renderUpcomingSchedule() {
+  var emptyEl = document.getElementById('ov-upcoming-empty');
+  var listEl  = document.getElementById('ov-upcoming-list');
+  if (!listEl) return;
+
+  // Build next 5 days including today
+  var days = [];
+  for (var i = 0; i < 5; i++) {
+    var d = new Date();
+    d.setDate(d.getDate() + i);
+    days.push(d.toISOString().slice(0, 10));
+  }
+
+  try {
+    var db = await _openSchedDB();
+    var allEvents = [];
+    for (var di = 0; di < days.length; di++) {
+      var date = days[di];
+      var evs  = await new Promise(function(resolve) {
+        var tx  = db.transaction('events', 'readonly');
+        var idx = tx.objectStore('events').index('date');
+        var req = idx.getAll(date);
+        req.onsuccess = function() { resolve(req.result); };
+      });
+      evs.forEach(function(ev) { ev._date = date; });
+      allEvents = allEvents.concat(evs);
+    }
+
+    allEvents.sort(function(a, b) {
+      var da = (a._date || '') + (a.time || '');
+      var db2 = (b._date || '') + (b.time || '');
+      return da.localeCompare(db2);
+    });
+
+    if (!allEvents.length) {
+      if (emptyEl) emptyEl.style.display = 'block';
+      listEl.innerHTML = '';
+      return;
+    }
+    if (emptyEl) emptyEl.style.display = 'none';
+
+    var OV_TC = { meeting:'#185FA5', visit:'#3B6D11', assembly:'#534AB7', office:'#BA7517', personal:'#888780', other:'#888780' };
+    var today = new Date().toISOString().slice(0, 10);
+
+    // Group by date
+    var grouped = {};
+    allEvents.forEach(function(ev) {
+      var d = ev._date;
+      if (!grouped[d]) grouped[d] = [];
+      grouped[d].push(ev);
+    });
+
+    var html = '';
+    Object.keys(grouped).sort().forEach(function(date) {
+      var isToday = date === today;
+      var dateObj = new Date(date + 'T00:00:00');
+      var dayName = dateObj.toLocaleDateString('en-IN', { weekday:'long', day:'numeric', month:'short' });
+      html += '<div style="padding:8px 14px;background:' + (isToday ? '#FFF8F0' : 'var(--bg)') + ';border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px">'
+        + '<span style="font-size:11px;font-weight:600;color:' + (isToday ? 'var(--saffron)' : 'var(--muted)') + '">' + (isToday ? 'TODAY — ' : '') + dayName + '</span>'
+        + '<span style="background:' + (isToday ? 'var(--saffron)' : 'var(--border)') + ';color:' + (isToday ? '#fff' : 'var(--muted)') + ';border-radius:8px;padding:1px 7px;font-size:10px">' + grouped[date].length + ' event' + (grouped[date].length > 1 ? 's' : '') + '</span>'
+        + '</div>';
+
+      grouped[date].forEach(function(ev) {
+        var color = OV_TC[ev.type] || '#888780';
+        var timeStr = ev.time ? ev.time + (ev.end_time ? ' – ' + ev.end_time : '') : 'All day';
+        html += '<div style="display:flex;align-items:center;gap:10px;padding:8px 14px;border-bottom:1px solid #F5F3EE">'
+          + '<div style="width:56px;flex-shrink:0;font-size:11px;font-weight:500;color:var(--text2);text-align:center">' + timeStr.split(' – ')[0] + '</div>'
+          + '<div style="width:3px;height:32px;border-radius:2px;background:' + color + ';flex-shrink:0"></div>'
+          + '<div style="flex:1;min-width:0">'
+          +   '<div style="font-size:12px;font-weight:500;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + _esc(ev.title || 'Untitled') + '</div>'
+          +   (ev.location ? '<div style="font-size:10px;color:var(--muted)"><i class="ti ti-map-pin" style="font-size:10px"></i> ' + _esc(ev.location) + '</div>' : '')
+          + '</div>'
+          + '<span class="sched-type-badge type-' + (ev.type || 'other') + '" style="font-size:9px;flex-shrink:0">' + (ev.type || 'other') + '</span>'
+          + '</div>';
+      });
+    });
+
+    listEl.innerHTML = html;
+  } catch(e) {
+    console.error('_renderUpcomingSchedule error:', e);
+  }
+}
+
+/* ════════════════════════════════════════════════════════════
+   REPORTS MODULE — PDF + CSV
+   ════════════════════════════════════════════════════════════ */
+
+var _rptSelectedIds = new Set();
+
+function initReports() {
+  // Set default date range (last 30 days to today)
+  var today = new Date();
+  var from  = new Date(today);
+  from.setDate(from.getDate() - 30);
+  document.getElementById('rpt-to').value   = today.toISOString().slice(0,10);
+  document.getElementById('rpt-from').value = from.toISOString().slice(0,10);
+  renderReportSelector();
+}
+
+/* ── Filter apps for report ─────────────────────────────── */
+function _getFilteredApps() {
+  var from     = document.getElementById('rpt-from').value;
+  var to       = document.getElementById('rpt-to').value;
+  var level    = document.getElementById('rpt-level').value;
+  var status   = document.getElementById('rpt-status').value;
+  var category = document.getElementById('rpt-category').value;
+  var sortBy   = document.getElementById('rpt-sort').value;
+
+  var apps = (_allApps || []).filter(function(a) {
+    if (from     && a.date_received < from) return false;
+    if (to       && a.date_received > to)   return false;
+    if (level    && a.level    !== level)   return false;
+    if (status   && a.status   !== status)  return false;
+    if (category && a.category !== category) return false;
+    return true;
+  });
+
+  apps.sort(function(a, b) {
+    if (sortBy === 'date_asc')  return (a.date_received||'').localeCompare(b.date_received||'');
+    if (sortBy === 'date_desc') return (b.date_received||'').localeCompare(a.date_received||'');
+    if (sortBy === 'name')      return (a.name||'').localeCompare(b.name||'');
+    if (sortBy === 'level')     return (a.level||'').localeCompare(b.level||'');
+    if (sortBy === 'status')    return (a.status||'').localeCompare(b.status||'');
+    return 0;
+  });
+  return apps;
+}
+
+/* ── Render selector checkboxes ─────────────────────────── */
+function renderReportSelector() {
+  var q    = (document.getElementById('rpt-search').value || '').toLowerCase();
+  var apps = (_allApps || []).filter(function(a) {
+    return !q || (a.name||'').toLowerCase().includes(q) || (a.subject||'').toLowerCase().includes(q) || (a.ref_id||'').toLowerCase().includes(q);
+  });
+
+  var el = document.getElementById('rpt-selector');
+  if (!apps.length) {
+    el.innerHTML = '<div class="empty" style="padding:20px"><i class="ti ti-search-off"></i><p>No applications found</p></div>';
+    return;
+  }
+
+  el.innerHTML = apps.map(function(a) {
+    var checked = _rptSelectedIds.has(a.ref_id) ? 'checked' : '';
+    return '<label style="display:flex;align-items:flex-start;gap:10px;padding:8px 12px;border-bottom:1px solid var(--border);cursor:pointer;font-size:12px">'
+      + '<input type="checkbox" value="' + _esc(a.ref_id) + '" ' + checked
+      + ' onchange="toggleRptSelect(this)" style="margin-top:2px;flex-shrink:0">'
+      + '<div style="flex:1;min-width:0">'
+      +   '<div style="font-weight:500;color:var(--text)">' + _esc(a.name) + ' <span style="font-family:monospace;color:var(--muted);font-size:10px">' + a.ref_id + '</span></div>'
+      +   '<div style="color:var(--text2);font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + _esc(a.subject||'') + '</div>'
+      +   '<div style="margin-top:2px"><span class="badge ' + (STATUS_BADGE[a.status]||'') + '" style="font-size:9px">' + (a.status||'') + '</span>'
+      +   ' <span style="font-size:10px;color:var(--muted)">' + (a.date_received||'') + ' · ' + (a.level||'') + '</span></div>'
+      + '</div></label>';
+  }).join('');
+
+  _updateRptCount();
+}
+
+function toggleRptSelect(cb) {
+  if (cb.checked) _rptSelectedIds.add(cb.value);
+  else _rptSelectedIds.delete(cb.value);
+  _updateRptCount();
+}
+
+function _updateRptCount() {
+  var el = document.getElementById('rpt-selected-count');
+  if (el) el.textContent = _rptSelectedIds.size > 0 ? _rptSelectedIds.size + ' application' + (_rptSelectedIds.size > 1 ? 's' : '') + ' selected' : 'None selected';
+}
+
+/* ── Build HTML for PDF/preview ─────────────────────────── */
+function _buildReportHTML(apps, title) {
+  /* ── STRICT 7-FIELD REGISTER FORMAT ────────────────────
+     Fields: Sl.No | Applicant Name & Address | Petition Details |
+             Action Taken | Current Status | Next Steps | Remarks
+     Suitable for A4 printing into a register book.
+     No overview stats, no summary boxes, no chart elements.
+  ─────────────────────────────────────────────────────── */
+  var today = new Date().toLocaleDateString('en-IN', { day:'2-digit', month:'long', year:'numeric' });
+
+  var rows = apps.map(function(a, i) {
+    // Applicant Name & Contact Address
+    var nameAddr = '<b style="font-size:11px">' + _esc(a.name || '') + '</b>';
+    if (a.phone)      nameAddr += '<br><span style="font-size:9px">Ph: ' + _esc(a.phone) + '</span>';
+    if (a.ward)       nameAddr += '<br><span style="font-size:9px">Ward/Area: ' + _esc(a.ward) + '</span>';
+
+    // Petition Details — subject + category + level + date
+    var petition = _esc(a.subject || '');
+    var petMeta  = [];
+    if (a.category)      petMeta.push(a.category);
+    if (a.level)         petMeta.push(a.level);
+    if (a.date_received) petMeta.push('Recd: ' + a.date_received);
+    if (petMeta.length)  petition += '<br><span style="font-size:9px;color:#555">' + petMeta.map(_esc).join(' · ') + '</span>';
+
+    // Action Taken — department + MLA letter
+    var action = '';
+    if (a.forwarded_to) {
+      action = '<b style="font-size:10px">' + _esc(a.forwarded_to) + '</b>';
+    }
+    if (a.notes) {
+      action += (action ? '<br>' : '') + '<span style="font-size:9px;color:#444">' + _esc(a.notes) + '</span>';
+    }
+    if (a.has_mla_letter) {
+      action += (action ? '<br>' : '') + '<span style="font-size:9px;color:#27500A;font-weight:bold">✓ MLA letter issued</span>';
+    }
+    if (!action) action = '—';
+
+    // Current Status
+    var statusColor = { 'Open':'#BA7517', 'In Progress':'#185FA5', 'Resolved':'#27500A', 'Escalated':'#A32D2D' };
+    var stCol = statusColor[a.status] || '#333';
+    var statusHtml = '<span style="font-weight:bold;color:' + stCol + '">' + _esc(a.status || '—') + '</span>';
+    if (a.priority && a.priority !== 'Normal') {
+      statusHtml += '<br><span style="font-size:9px;color:#A32D2D">' + _esc(a.priority) + ' priority</span>';
+    }
+
+    // Next Steps — dedicated field, with followup date as supplement
+    var nextSteps = '';
+    if (a.next_steps) nextSteps += _esc(a.next_steps);
+    if (a.followup_date) nextSteps += (nextSteps ? '<br>' : '') + '<span style="font-size:9px;color:#555">Follow-up: ' + _esc(a.followup_date) + '</span>';
+    if (!nextSteps) nextSteps = '—';
+
+    // Remarks — dedicated remarks field
+    var remarks = a.remarks ? _esc(a.remarks) : (a.notes ? _esc(a.notes) : '—');
+
+    return '<tr>'
+      + '<td style="width:22px;text-align:center;font-weight:bold;vertical-align:top;padding-top:7px">' + (i+1) + '</td>'
+      + '<td style="width:18%;vertical-align:top">' + nameAddr + '</td>'
+      + '<td style="width:24%;vertical-align:top">' + petition + '</td>'
+      + '<td style="width:16%;vertical-align:top;font-size:10px">' + action + '</td>'
+      + '<td style="width:10%;vertical-align:top;text-align:center">' + statusHtml + '</td>'
+      + '<td style="width:13%;vertical-align:top;font-size:10px">' + nextSteps + '</td>'
+      + '<td style="width:14%;vertical-align:top;font-size:10px;color:#555">' + remarks + '</td>'
+      + '</tr>';
+  }).join('');
+
+  var dateRange = '';
+  // Will be passed via title or separately — kept minimal
+  
+  return '<!DOCTYPE html><html><head><meta charset="UTF-8">'    + '<title>Kochi MLA Office — Application Register</title>'    + '<style>'    + 'body{font-family:Arial,Helvetica,sans-serif;font-size:10.5px;margin:0;padding:0;color:#111}'    + '@page{size:A4 landscape;margin:10mm 8mm}'    + '@media print{.no-print{display:none!important}body{font-size:9.5px}}'    + 'table{width:100%;border-collapse:collapse;table-layout:fixed}'    + 'th{background:#0F2C54;color:#fff;padding:6px 5px;text-align:left;font-size:10px;border:1px solid #0A1F3D}'    + 'td{padding:5px 5px;border:1px solid #C8C6C0;vertical-align:top;word-wrap:break-word}'    + 'tr:nth-child(even){background:#F7F5F0}'    + 'tr:nth-child(odd){background:#FFFFFF}'    + '.header{border-bottom:2.5px solid #0F2C54;padding-bottom:8px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:flex-end}'    + '.header-left h1{font-size:14px;color:#0F2C54;margin:0 0 2px;font-weight:bold}'    + '.header-left h2{font-size:11px;color:#555;margin:0;font-weight:normal}'    + '.header-right{text-align:right;font-size:9px;color:#777}'    + '.footer{text-align:center;font-size:8.5px;color:#999;margin-top:8px;border-top:1px solid #DDD;padding-top:5px;display:flex;justify-content:space-between}'    + '.btn-bar{background:#0F2C54;padding:8px;text-align:center}'    + '.btn-print{background:#fff;color:#0F2C54;border:none;padding:7px 18px;border-radius:5px;font-size:12px;cursor:pointer;margin:0 4px;font-weight:bold}'    + '.btn-close{background:#E8820C;color:#fff;border:none;padding:7px 18px;border-radius:5px;font-size:12px;cursor:pointer;margin:0 4px}'    + '</style></head><body>'    + '<div class="no-print btn-bar">'    + '<button class="btn-print" onclick="window.print()">🖨 Print / Save as PDF</button>'    + '<button class="btn-close" onclick="window.close()">✕ Close</button>'    + '</div>'    + '<div class="header">'    + '<div class="header-left">'    + '<h1>Kochi Constituency — MLA Office Application Register</h1>'    + '<h2>Mohammed Shiyas MLA &nbsp;·&nbsp; Constituency No. 80 &nbsp;·&nbsp; 16th Kerala Legislative Assembly</h2>'    + '</div>'    + '<div class="header-right">'    + 'Generated: ' + today + '<br>'    + 'Total: ' + apps.length + ' application' + (apps.length !== 1 ? 's' : '') + '<br>'    + title    + '</div>'    + '</div>'    + '<table>'    + '<thead><tr>'    + '<th style="width:28px;text-align:center">File No.</th>'    + '<th style="width:20%">Applicant Name,<br>Contact Details &amp; Address</th>'    + '<th style="width:22%">Petition Details</th>'    + '<th style="width:18%">Action Taken<br><span style="font-weight:normal;font-size:9px">(Dept. forwarded to)</span></th>'    + '<th style="width:11%">Current Status</th>'    + '<th style="width:13%">Next Steps</th>'    + '<th style="width:12%">Remarks</th>'    + '</tr></thead>'    + '<tbody>' + rows + '</tbody>'    + '</table>'    + '<div class="footer">'    + '<span>Kochi Constituency MLA Office &nbsp;|&nbsp; Application Register</span>'    + '<span>' + title + '</span>'    + '<span>Printed: ' + today + ' &nbsp;|&nbsp; Page <span class="page-num"></span></span>'    + '</div>'    + '</body></html>';
+}
+
+
+/* ── Preview in browser ─────────────────────────────────── */
+/* ── Preview register report in browser ─────────────────── */
+function previewRegisterReport() {
+  var apps = _getFilteredApps();
+  if (!apps.length) { toast('No applications match the selected filters', true); return; }
+  var fromVal = document.getElementById('rpt-from').value || 'All dates';
+  var toVal   = document.getElementById('rpt-to').value   || 'All dates';
+  var html = _buildReportHTML(apps, fromVal + ' to ' + toVal);
+  var win  = window.open('', '_blank');
+  if (!win) { toast('Allow popups for this site to preview the report', true); return; }
+  win.document.write(html);
+  win.document.close();
+}
+
+/* ── Backward compat aliases ─────────────────────────────── */
+function previewReport() { previewRegisterReport(); }
+
+/* ── Download register PDF ──────────────────────────────── */
+function generateRegisterPDF() {
+  var apps = _getFilteredApps();
+  if (!apps.length) { toast('No applications match the selected filters', true); return; }
+  var fromVal = document.getElementById('rpt-from').value || 'All dates';
+  var toVal   = document.getElementById('rpt-to').value   || 'All dates';
+  var html = _buildReportHTML(apps, fromVal + ' to ' + toVal);
+  var win  = window.open('', '_blank');
+  if (!win) { toast('Allow popups for this site to open the report', true); return; }
+  win.document.write(html);
+  win.document.close();
+  win.focus();
+  setTimeout(function() { win.print(); }, 900);
+  toast('Register PDF opened — choose Print > Save as PDF');
+}
+
+/* ── Backward compat ─────────────────────────────────────── */
+function generatePDF() { generateRegisterPDF(); }
+
+/* ── Download selected applications as register PDF ─────── */
+function generateSelectedRegisterPDF() {
+  if (_rptSelectedIds.size === 0) { toast('Please select at least one application', true); return; }
+  var apps = (_allApps || []).filter(function(a) { return _rptSelectedIds.has(a.ref_id); });
+  if (!apps.length) { toast('Selected applications not found', true); return; }
+  var html = _buildReportHTML(apps, 'Selected: ' + apps.length + ' application' + (apps.length !== 1 ? 's' : ''));
+  var win  = window.open('', '_blank');
+  if (!win) { toast('Allow popups for this site to open the report', true); return; }
+  win.document.write(html);
+  win.document.close();
+  win.focus();
+  setTimeout(function() { win.print(); }, 900);
+  toast('Register PDF opened — choose Print > Save as PDF');
+}
+
+/* ── Backward compat ─────────────────────────────────────── */
+function generateSelectedPDF() { generateSelectedRegisterPDF(); }
+
+/* ── Export CSV report ──────────────────────────────────── */
+function generateCSVReport() {
+  var apps = _getFilteredApps();
+  if (!apps.length) { toast('No applications match the selected filters', true); return; }
+  var headers = ['Ref ID','Name','Phone','Ward','Category','Level','Forwarded To','Subject','Status','Priority','Date Received','MLA Letter','Follow-up Date','Notes'];
+  var rows = apps.map(function(a) {
+    return [
+      a.ref_id, a.name, a.phone, a.ward, a.category, a.level,
+      a.forwarded_to, a.subject, a.status, a.priority, a.date_received,
+      a.has_mla_letter ? 'Yes' : 'No', a.followup_date||'', a.notes||''
+    ].map(function(v) { return '"' + String(v==null?'':v).replace(/"/g,'""') + '"'; }).join(',');
+  });
+  var csv  = [headers.join(',')].concat(rows).join('\r\n');
+  var blob = new Blob([csv], { type:'text/csv;charset=utf-8;' });
+  var url  = URL.createObjectURL(blob);
+  var a    = document.createElement('a');
+  a.href = url;
+  a.download = 'kochi_report_' + new Date().toISOString().slice(0,10) + '.csv';
+  a.click();
+  URL.revokeObjectURL(url);
+  toast('CSV exported — ' + apps.length + ' applications');
+}
+</script>
