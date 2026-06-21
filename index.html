@@ -165,8 +165,9 @@
     .stat-card {
       background: var(--card); border: 1px solid var(--border);
       border-radius: var(--radius); padding: 14px 16px;
-      box-shadow: var(--shadow);
+      box-shadow: var(--shadow); transition: box-shadow 0.15s, transform 0.1s;
     }
+    .stat-card:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.12); transform: translateY(-1px); }
     .stat-label { font-size: 11px; color: var(--muted); margin-bottom: 6px;
       text-transform: uppercase; letter-spacing: 0.04em; font-weight: 500; }
     .stat-val   { font-size: 28px; font-weight: 600; color: var(--text); line-height: 1; }
@@ -483,10 +484,26 @@
         <!-- ── OVERVIEW ──────────────────────────────────── -->
         <div class="page active" id="page-overview">
           <div class="stat-grid" id="stat-grid">
-            <div class="stat-card"><div class="stat-label">Total Applications</div><div class="stat-val" id="s-total">—</div></div>
-            <div class="stat-card"><div class="stat-label">Resolved</div><div class="stat-val" id="s-resolved" style="color:var(--green)">—</div></div>
-            <div class="stat-card"><div class="stat-label">Open / Pending</div><div class="stat-val" id="s-open" style="color:var(--saffron)">—</div></div>
-            <div class="stat-card"><div class="stat-label">Urgent</div><div class="stat-val" id="s-urgent" style="color:var(--red)">—</div></div>
+            <div class="stat-card" onclick="filterAndNav('')" style="cursor:pointer" title="View all applications">
+              <div class="stat-label">Total Applications</div>
+              <div class="stat-val" id="s-total">—</div>
+              <div style="font-size:10px;color:var(--muted);margin-top:6px">Click to view all</div>
+            </div>
+            <div class="stat-card" onclick="filterAndNav('Resolved')" style="cursor:pointer" title="View resolved applications">
+              <div class="stat-label">Resolved</div>
+              <div class="stat-val" id="s-resolved" style="color:var(--green)">—</div>
+              <div style="font-size:10px;color:var(--muted);margin-top:6px">Click to view</div>
+            </div>
+            <div class="stat-card" onclick="filterAndNav('Open')" style="cursor:pointer" title="View open applications">
+              <div class="stat-label">Open / Pending</div>
+              <div class="stat-val" id="s-open" style="color:var(--saffron)">—</div>
+              <div style="font-size:10px;color:var(--muted);margin-top:6px">Click to view</div>
+            </div>
+            <div class="stat-card" onclick="filterAndNavPriority('Urgent')" style="cursor:pointer" title="View urgent applications">
+              <div class="stat-label">Urgent</div>
+              <div class="stat-val" id="s-urgent" style="color:var(--red)">—</div>
+              <div style="font-size:10px;color:var(--muted);margin-top:6px">Click to view</div>
+            </div>
           </div>
 
           <div class="charts-row">
@@ -853,7 +870,7 @@
      (from Deploy → Manage deployments → copy the URL)
      ───────────────────────────────────────────────────── */
   // ── STEP 1: Replace with your Apps Script Web App URL ──
-  const GAS_ENDPOINT = 'https://script.google.com/macros/s/AKfycbwmOj9xiYtrvy6E7-_hSB5tSDxH1EQK4omFB2ev9aDMXbTNKFydY68G2BZHEiw-5Inr/exec';
+  const GAS_ENDPOINT = 'https://script.google.com/macros/s/AKfycbzqlUJ94eYnpVDquqTf1GYaaXv8s-uUnSZfUvE0DPULLtJ_-8Gva6yMli5rpiNQQ9M/exec';
 
   // ── STEP 2: Firebase config (already filled in) ────────
   const FIREBASE_CONFIG = {
@@ -1319,6 +1336,7 @@ function renderAppsTable() {
     if (fl && a.level    !== fl) return false;
     if (fs && a.status   !== fs) return false;
     if (fc && a.category !== fc) return false;
+    if (_urgentFilter && a.priority !== _urgentFilter) return false;
     return true;
   });
 
@@ -1479,30 +1497,65 @@ function closeEditModal() {
 
 async function saveEdit() {
   const refId = document.getElementById('e-ref-id').value;
+  if (!refId) { toast('No application selected', true); return; }
+
+  // Read all values BEFORE closing the modal
+  const newStatus    = document.getElementById('e-status').value;
+  const newPriority  = document.getElementById('e-priority').value;
+  const newCategory  = document.getElementById('e-category').value;
+  const newFwd       = document.getElementById('e-fwd').value.trim();
+  const newNotes     = document.getElementById('e-notes').value.trim();
+  const newFollowup  = document.getElementById('e-followup').value;
+  const appDriveUrl  = document.getElementById('e-app-drive-url').value;
+  const mlaDriveUrl  = document.getElementById('e-mla-drive-url').value;
+
+  const payload = {
+    ref_id:        refId,
+    status:        newStatus,
+    priority:      newPriority,
+    category:      newCategory,
+    forwarded_to:  newFwd,
+    notes:         newNotes,
+    followup_date: newFollowup,
+  };
+  if (appDriveUrl) { payload.app_drive_url = appDriveUrl; payload.has_app_file = true; }
+  if (mlaDriveUrl) { payload.mla_drive_url = mlaDriveUrl; payload.has_mla_letter = true; }
+
   try {
-    const appDriveUrl = document.getElementById('e-app-drive-url').value;
-    const mlaDriveUrl = document.getElementById('e-mla-drive-url').value;
-    const payload = {
-      ref_id:        refId,
-      status:        document.getElementById('e-status').value,
-      priority:      document.getElementById('e-priority').value,
-      category:      document.getElementById('e-category').value,
-      forwarded_to:  document.getElementById('e-fwd').value.trim(),
-      notes:         document.getElementById('e-notes').value.trim(),
-      followup_date: document.getElementById('e-followup').value,
-    };
-    // Only update drive URLs if new ones were selected
-    if (appDriveUrl) { payload.app_drive_url = appDriveUrl; payload.has_app_file = true; }
-    if (mlaDriveUrl) { payload.mla_drive_url = mlaDriveUrl; payload.has_mla_letter = true; }
-    await api('update_application', payload);
-    // Update local cache
-    const app = _allApps.find(a => a.ref_id === refId);
-    if (app) Object.assign(app, payload);
-    toast('Application updated successfully');
+    // 1. Update local cache IMMEDIATELY so UI is responsive
+    const app = _allApps.find(function(a) { return a.ref_id === refId; });
+    if (app) {
+      app.status        = newStatus;
+      app.priority      = newPriority;
+      app.category      = newCategory;
+      app.forwarded_to  = newFwd;
+      app.notes         = newNotes;
+      app.followup_date = newFollowup;
+      if (appDriveUrl) { app.app_file_drive_id = appDriveUrl; app.has_app_file = true; }
+      if (mlaDriveUrl) { app.mla_file_drive_id = mlaDriveUrl; app.has_mla_letter = true; }
+    }
+
+    // 2. Close modal and refresh UI immediately (don't wait for server)
     closeEditModal();
     renderAppsTable();
-    loadOverview();
-  } catch(e) { toast('Save failed: ' + e.message, true); }
+
+    // 3. Send to server
+    await api('update_application', payload);
+    toast('Application ' + refId + ' updated successfully');
+
+    // 4. Reload overview stats (don't reload allApps — we already updated locally)
+    const statsData = await api('get_stats');
+    document.getElementById('s-total').textContent    = statsData.total    || 0;
+    document.getElementById('s-resolved').textContent = statsData.resolved || 0;
+    document.getElementById('s-open').textContent     = statsData.open     || 0;
+    document.getElementById('s-urgent').textContent   = (statsData.by_priority && statsData.by_priority['Urgent']) || 0;
+    _renderAlerts(_allApps);
+
+  } catch(e) {
+    toast('Save failed — ' + e.message + '. Please try again.', true);
+    // Revert local cache on failure by reloading from server
+    loadApplications();
+  }
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -1905,6 +1958,34 @@ document.addEventListener('DOMContentLoaded', function() {
     if (typeof gapi !== 'undefined') loadPickerApi();
   }, 1500);
 });
+
+/* ── STAT CARD NAVIGATION ──────────────────────────────────── */
+function filterAndNav(status) {
+  // Switch to applications page
+  navTo('applications', document.querySelector('[onclick*="applications"]'));
+  // Apply status filter
+  setTimeout(function() {
+    var sel = document.getElementById('f-status');
+    if (sel) { sel.value = status; renderAppsTable(); }
+  }, 100);
+}
+
+function filterAndNavPriority(priority) {
+  navTo('applications', document.querySelector('[onclick*="applications"]'));
+  setTimeout(function() {
+    var sel = document.getElementById('f-status');
+    if (sel) sel.value = '';
+    // Filter by urgent in the search box
+    var search = document.getElementById('f-search');
+    // Use a custom priority filter approach - show urgent via table render
+    _urgentFilter = priority;
+    renderAppsTable();
+    _urgentFilter = null;
+  }, 100);
+}
+
+// Temporary priority filter used by stat card click
+var _urgentFilter = null;
 
 async function doExport() {
   try {
