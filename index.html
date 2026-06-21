@@ -161,7 +161,7 @@
     .page.active { display: block; }
 
     /* ── STAT GRID ────────────────────────────────────────── */
-    .stat-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 12px; margin-bottom: 18px; }
+    .stat-grid { display: grid; grid-template-columns: repeat(6,1fr); gap: 10px; margin-bottom: 18px; }
     .stat-card {
       background: var(--card); border: 1px solid var(--border);
       border-radius: var(--radius); padding: 14px 16px;
@@ -373,6 +373,34 @@
     .alert-item:last-child { border-bottom:none; }
     .alert-item:hover { color:var(--red); }
 
+    /* ── SCHEDULE ────────────────────────────────────────── */
+    .sched-event {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 12px 16px;
+      margin-bottom: 8px; display: flex; gap: 14px;
+      box-shadow: var(--shadow); transition: box-shadow 0.15s;
+    }
+    .sched-event:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+    .sched-time-col { flex-shrink:0; width:64px; text-align:center; }
+    .sched-time { font-size:13px; font-weight:600; color:var(--text); }
+    .sched-end  { font-size:10px; color:var(--muted); margin-top:2px; }
+    .sched-bar  { width:3px; border-radius:2px; flex-shrink:0; }
+    .sched-body { flex:1; }
+    .sched-title { font-size:13px; font-weight:600; color:var(--text); margin-bottom:3px; }
+    .sched-meta  { font-size:11px; color:var(--muted); display:flex; gap:10px; flex-wrap:wrap; }
+    .sched-meta i { font-size:12px; }
+    .sched-type-badge {
+      display:inline-flex;align-items:center;gap:3px;padding:1px 7px;
+      border-radius:8px;font-size:10px;font-weight:500;
+    }
+    .type-meeting  { background:#E6F1FB;color:#0C447C; }
+    .type-visit    { background:#EAF3DE;color:#27500A; }
+    .type-assembly { background:#EEEDFE;color:#3C3489; }
+    .type-office   { background:#FAEEDA;color:#633806; }
+    .type-personal { background:#F1EFE8;color:#555350; }
+    .type-other    { background:#F1EFE8;color:#555350; }
+    .sched-actions { display:flex;gap:6px;margin-top:8px; }
+
     /* ── SCROLLBAR ────────────────────────────────────────── */
     ::-webkit-scrollbar { width: 5px; }
     ::-webkit-scrollbar-track { background: transparent; }
@@ -484,25 +512,35 @@
         <!-- ── OVERVIEW ──────────────────────────────────── -->
         <div class="page active" id="page-overview">
           <div class="stat-grid" id="stat-grid">
-            <div class="stat-card" onclick="filterAndNav('')" style="cursor:pointer" title="View all applications">
-              <div class="stat-label">Total Applications</div>
+            <div class="stat-card" onclick="filterAndNav('')" style="cursor:pointer" title="All applications">
+              <div class="stat-label">Total</div>
               <div class="stat-val" id="s-total">—</div>
-              <div style="font-size:10px;color:var(--muted);margin-top:6px">Click to view all</div>
+              <div style="font-size:10px;color:var(--muted);margin-top:4px">All applications</div>
             </div>
-            <div class="stat-card" onclick="filterAndNav('Resolved')" style="cursor:pointer" title="View resolved applications">
+            <div class="stat-card" onclick="filterAndNav('Open')" style="cursor:pointer" title="Open applications">
+              <div class="stat-label">Open</div>
+              <div class="stat-val" id="s-open" style="color:var(--saffron)">—</div>
+              <div style="font-size:10px;color:var(--muted);margin-top:4px">Awaiting action</div>
+            </div>
+            <div class="stat-card" onclick="filterAndNav('In Progress')" style="cursor:pointer" title="In progress">
+              <div class="stat-label">In Progress</div>
+              <div class="stat-val" id="s-inprogress" style="color:#185FA5">—</div>
+              <div style="font-size:10px;color:var(--muted);margin-top:4px">Being processed</div>
+            </div>
+            <div class="stat-card" onclick="filterAndNav('Resolved')" style="cursor:pointer" title="Resolved">
               <div class="stat-label">Resolved</div>
               <div class="stat-val" id="s-resolved" style="color:var(--green)">—</div>
-              <div style="font-size:10px;color:var(--muted);margin-top:6px">Click to view</div>
+              <div style="font-size:10px;color:var(--muted);margin-top:4px">Completed</div>
             </div>
-            <div class="stat-card" onclick="filterAndNav('Open')" style="cursor:pointer" title="View open applications">
-              <div class="stat-label">Open / Pending</div>
-              <div class="stat-val" id="s-open" style="color:var(--saffron)">—</div>
-              <div style="font-size:10px;color:var(--muted);margin-top:6px">Click to view</div>
+            <div class="stat-card" onclick="filterAndNav('Escalated')" style="cursor:pointer" title="Escalated">
+              <div class="stat-label">Escalated</div>
+              <div class="stat-val" id="s-escalated" style="color:var(--red)">—</div>
+              <div style="font-size:10px;color:var(--muted);margin-top:4px">Needs attention</div>
             </div>
-            <div class="stat-card" onclick="filterAndNavPriority('Urgent')" style="cursor:pointer" title="View urgent applications">
+            <div class="stat-card" onclick="filterAndNavPriority('Urgent')" style="cursor:pointer" title="Urgent priority">
               <div class="stat-label">Urgent</div>
               <div class="stat-val" id="s-urgent" style="color:var(--red)">—</div>
-              <div style="font-size:10px;color:var(--muted);margin-top:6px">Click to view</div>
+              <div style="font-size:10px;color:var(--muted);margin-top:4px">High priority</div>
             </div>
           </div>
 
@@ -543,6 +581,28 @@
                 <tr class="loading-row"><td colspan="6">Loading...</td></tr>
               </tbody>
             </table>
+          </div>
+
+          <!-- INTEGRATED SCHEDULE WIDGET on overview -->
+          <div style="margin-top:20px">
+            <div class="section-hd" style="margin-bottom:10px">
+              <h2><i class="ti ti-calendar-event" style="color:var(--saffron);margin-right:5px"></i>Schedule</h2>
+              <div style="display:flex;gap:6px;align-items:center">
+                <input type="date" id="ov-sched-date"
+                  style="font-size:11px;padding:5px 8px;border:1px solid var(--border);border-radius:var(--radius);background:var(--card);color:var(--text);font-family:inherit"
+                  onchange="ovLoadSchedule()">
+                <button class="btn btn-sm" data-require="canWrite" onclick="ovOpenAddEvent()" title="Add event">
+                  <i class="ti ti-plus"></i>Add
+                </button>
+              </div>
+            </div>
+            <div id="ov-sched-body" style="background:var(--card);border:1px solid var(--border);border-radius:var(--radius);min-height:80px;overflow:hidden">
+              <div class="empty" style="padding:20px" id="ov-sched-empty">
+                <i class="ti ti-calendar-off"></i>
+                <p>No events for this date</p>
+              </div>
+              <div id="ov-sched-list"></div>
+            </div>
           </div>
         </div>
 
@@ -768,6 +828,28 @@
           </div>
         </div>
 
+        <!-- ── DAILY SCHEDULE ───────────────────────────── -->
+        <div class="page" id="page-schedule">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:10px">
+            <div style="display:flex;align-items:center;gap:10px">
+              <input type="date" id="sched-date" style="font-size:13px;padding:7px 10px;border:1px solid var(--border);border-radius:var(--radius);background:var(--card);color:var(--text);font-family:inherit">
+              <button class="btn" onclick="loadSchedule()"><i class="ti ti-refresh"></i>Load</button>
+            </div>
+            <button class="btn btn-primary" data-require="canWrite" onclick="openAddEvent()">
+              <i class="ti ti-plus"></i>Add Event
+            </button>
+          </div>
+
+          <!-- Timeline view -->
+          <div id="schedule-timeline" style="position:relative">
+            <div class="empty" id="sched-empty" style="display:none">
+              <i class="ti ti-calendar-off"></i>
+              <p>No events scheduled for this date</p>
+            </div>
+            <div id="sched-list"></div>
+          </div>
+        </div>
+
       </div><!-- /content -->
     </div><!-- /main -->
   </div><!-- /shell -->
@@ -861,6 +943,61 @@
 
 <div class="toast" id="toast"></div>
 
+<!-- SCHEDULE EVENT MODAL -->
+<div class="modal-bg" id="sched-modal" onclick="if(event.target===this)closeSchedModal()">
+  <div class="modal" style="max-width:480px">
+    <div class="modal-hd">
+      <h2 id="sched-modal-title">Add Event</h2>
+      <button class="btn btn-sm" onclick="closeSchedModal()"><i class="ti ti-x"></i></button>
+    </div>
+    <div class="modal-body">
+      <div class="edit-grid">
+        <div class="edit-group"><label>Date *</label>
+          <input id="ev-date" type="date">
+        </div>
+        <div class="edit-group"><label>Time *</label>
+          <input id="ev-time" type="time">
+        </div>
+        <div class="edit-group"><label>End Time</label>
+          <input id="ev-end-time" type="time">
+        </div>
+        <div class="edit-group"><label>Event Type</label>
+          <select id="ev-type">
+            <option value="meeting">Meeting</option>
+            <option value="visit">Constituency Visit</option>
+            <option value="assembly">Assembly Session</option>
+            <option value="office">Office Hours</option>
+            <option value="personal">Personal</option>
+            <option value="other">Other</option>
+          </select>
+        </div>
+        <div class="edit-group full"><label>Title *</label>
+          <input id="ev-title" type="text" placeholder="Event title">
+        </div>
+        <div class="edit-group full"><label>Location</label>
+          <input id="ev-location" type="text" placeholder="Venue or location">
+        </div>
+        <div class="edit-group full"><label>Description / Notes</label>
+          <textarea id="ev-desc" placeholder="Additional details..."></textarea>
+        </div>
+        <div class="edit-group full"><label>Attendees</label>
+          <input id="ev-attendees" type="text" placeholder="Names of attendees (comma separated)">
+        </div>
+      </div>
+      <input type="hidden" id="ev-id">
+      <div style="display:flex;gap:8px;margin-top:4px">
+        <button class="btn btn-primary" onclick="saveEvent()">
+          <i class="ti ti-check"></i>Save Event
+        </button>
+        <button class="btn" onclick="closeSchedModal()">Cancel</button>
+        <button class="btn btn-danger" id="ev-delete-btn" onclick="deleteEvent()" style="display:none;margin-left:auto">
+          <i class="ti ti-trash"></i>Delete
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- ═══════════════════════════════════════════════════════════
      CONFIGURATION — FILL IN YOUR VALUES BELOW
      ═══════════════════════════════════════════════════════ -->
@@ -870,7 +1007,7 @@
      (from Deploy → Manage deployments → copy the URL)
      ───────────────────────────────────────────────────── */
   // ── STEP 1: Replace with your Apps Script Web App URL ──
-  const GAS_ENDPOINT = 'https://script.google.com/macros/s/AKfycbzqlUJ94eYnpVDquqTf1GYaaXv8s-uUnSZfUvE0DPULLtJ_-8Gva6yMli5rpiNQQ9M/exec';
+  const GAS_ENDPOINT = 'https://script.google.com/macros/s/AKfycbz5YNZQrdrfTVSAv5sQRuljIwLhiHLE8-axMc-2yXHJQUz9G1fkMfhX0Gkh1KYoVNWH/exec';
 
   // ── STEP 2: Firebase config (already filled in) ────────
   const FIREBASE_CONFIG = {
@@ -1130,6 +1267,7 @@ const PAGE_TITLES = {
   'constituents':  ['Constituents', 'Constituent profile database'],
   'new-const':     ['Add Constituent', 'Create a new constituent profile'],
   'manage-users':  ['Manage Users', 'Add and manage staff access'],
+  'schedule':      ['Daily Schedule', 'MLA office event and meeting calendar'],
 };
 
 function navTo(page, el) {
@@ -1145,6 +1283,7 @@ function navTo(page, el) {
   if (page === 'applications')  loadApplications();
   if (page === 'constituents')  loadConstituents();
   if (page === 'manage-users')  loadUsers();
+  if (page === 'schedule')      initSchedule();
 }
 
 /* ── SHOW / HIDE ───────────────────────────────────────────── */
@@ -1162,11 +1301,9 @@ function _showLogin() {
    ═══════════════════════════════════════════════════════ */
 async function loadOverview() {
   try {
-    const data = await api('get_stats');
-    document.getElementById('s-total').textContent    = data.total    || 0;
-    document.getElementById('s-resolved').textContent = data.resolved || 0;
-    document.getElementById('s-open').textContent     = data.open     || 0;
-    document.getElementById('s-urgent').textContent   = (data.by_priority && data.by_priority['Urgent']) || 0;
+    const data       = await api('get_stats');
+    window._lastStats = data;
+    _updateStatCards(data);
 
     _renderLevelChart(data.by_level || {});
     _renderStatusChart(data.by_status || {});
@@ -1176,10 +1313,160 @@ async function loadOverview() {
     _allApps = recentData.applications || [];
     _renderAlerts(_allApps);
     _renderRecentTable(_allApps.slice(0, 6));
+    _renderOverviewSchedule();   // show today's events
   } catch(e) {
     console.error('loadOverview error:', e);
     toast('Could not load overview: ' + e.message, true);
   }
+}
+
+/* ══════════════════════════════════════════════════════════
+   OVERVIEW INTEGRATED SCHEDULE WIDGET
+   ══════════════════════════════════════════════════════════ */
+
+var OV_TYPE_COLORS = {
+  meeting:'#185FA5', visit:'#3B6D11', assembly:'#534AB7',
+  office:'#BA7517',  personal:'#888780', other:'#888780',
+};
+
+/* ── Called on loadOverview — sets today and loads events ── */
+async function _renderOverviewSchedule() {
+  var dp = document.getElementById('ov-sched-date');
+  if (dp && !dp.value) dp.value = new Date().toISOString().slice(0, 10);
+  await ovLoadSchedule();
+}
+
+/* ── Load events for selected date into overview widget ──── */
+async function ovLoadSchedule() {
+  var dp   = document.getElementById('ov-sched-date');
+  var date = dp ? dp.value : new Date().toISOString().slice(0,10);
+  if (!date) return;
+
+  var empty = document.getElementById('ov-sched-empty');
+  var list  = document.getElementById('ov-sched-list');
+  if (!list) return;
+
+  try {
+    var db = await _openSchedDB();
+    var events = await new Promise(function(resolve) {
+      var tx  = db.transaction('events', 'readonly');
+      var idx = tx.objectStore('events').index('date');
+      var req = idx.getAll(date);
+      req.onsuccess = function() { resolve(req.result); };
+    });
+
+    events.sort(function(a, b) { return (a.time||'').localeCompare(b.time||''); });
+
+    if (!events.length) {
+      list.innerHTML  = '';
+      if (empty) empty.style.display = 'block';
+      return;
+    }
+    if (empty) empty.style.display = 'none';
+    var caps = ROLE_CAPS[_userRole] || ROLE_CAPS.viewer;
+
+    list.innerHTML = events.map(function(ev) {
+      var color   = OV_TYPE_COLORS[ev.type] || '#888780';
+      var timeStr = ev.time
+        ? ev.time + (ev.end_time ? ' – ' + ev.end_time : '')
+        : 'All day';
+      var locHtml = ev.location
+        ? ' <span style="color:var(--muted)"><i class="ti ti-map-pin" style="font-size:10px"></i> ' + _esc(ev.location) + '</span>'
+        : '';
+      var editBtn = caps.canWrite
+        ? '<button class="btn btn-sm" style="padding:3px 8px;font-size:10px" onclick="ovEditEvent(' + ev.id + ')">'
+          + '<i class="ti ti-pencil"></i></button>'
+        : '';
+      var delBtn = caps.canWrite
+        ? '<button class="btn btn-sm btn-danger" style="padding:3px 8px;font-size:10px" onclick="ovDeleteEvent(' + ev.id + ')">'
+          + '<i class="ti ti-trash"></i></button>'
+        : '';
+
+      return '<div style="display:flex;align-items:stretch;gap:10px;padding:10px 14px;border-bottom:1px solid var(--border)">'
+        + '<div style="width:60px;flex-shrink:0;text-align:center">'
+        +   '<div style="font-size:12px;font-weight:600;color:var(--text)">' + timeStr.split(' – ')[0] + '</div>'
+        +   (ev.end_time ? '<div style="font-size:9px;color:var(--muted)">' + ev.end_time + '</div>' : '')
+        + '</div>'
+        + '<div style="width:3px;border-radius:2px;background:' + color + ';flex-shrink:0"></div>'
+        + '<div style="flex:1;min-width:0">'
+        +   '<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">'
+        +     '<span class="sched-type-badge type-' + (ev.type||'other') + '" style="font-size:9px">' + (ev.type||'other') + '</span>'
+        +     '<span style="font-size:12px;font-weight:500;color:var(--text)">' + _esc(ev.title||'Untitled') + '</span>'
+        +   '</div>'
+        +   (ev.location || ev.attendees
+            ? '<div style="font-size:10px;color:var(--muted);margin-top:2px">' + locHtml
+              + (ev.attendees ? ' <span><i class="ti ti-users" style="font-size:10px"></i> ' + _esc(ev.attendees) + '</span>' : '')
+              + '</div>'
+            : '')
+        +   (ev.description ? '<div style="font-size:10px;color:var(--text2);margin-top:3px;line-height:1.4">' + _esc(ev.description) + '</div>' : '')
+        + '</div>'
+        + '<div style="display:flex;flex-direction:column;gap:3px;flex-shrink:0">' + editBtn + delBtn + '</div>'
+        + '</div>';
+    }).join('');
+
+  } catch(e) {
+    console.error('ovLoadSchedule error:', e);
+  }
+}
+
+/* ── Add event from overview ─────────────────────────────── */
+function ovOpenAddEvent() {
+  var caps = ROLE_CAPS[_userRole] || ROLE_CAPS.viewer;
+  if (!caps.canWrite) { toast('View-only access', true); return; }
+  // Pre-fill with selected date
+  var date = document.getElementById('ov-sched-date').value || new Date().toISOString().slice(0,10);
+  document.getElementById('sched-modal-title').textContent = 'Add Event';
+  document.getElementById('ev-id').value          = '';
+  document.getElementById('ev-date').value        = date;
+  document.getElementById('ev-time').value        = '';
+  document.getElementById('ev-end-time').value    = '';
+  document.getElementById('ev-type').value        = 'meeting';
+  document.getElementById('ev-title').value       = '';
+  document.getElementById('ev-location').value    = '';
+  document.getElementById('ev-desc').value        = '';
+  document.getElementById('ev-attendees').value   = '';
+  document.getElementById('ev-delete-btn').style.display = 'none';
+  // Override save to refresh overview widget
+  window._schedSaveCallback = ovLoadSchedule;
+  document.getElementById('sched-modal').classList.add('open');
+}
+
+/* ── Edit event from overview ────────────────────────────── */
+async function ovEditEvent(id) {
+  var caps = ROLE_CAPS[_userRole] || ROLE_CAPS.viewer;
+  if (!caps.canWrite) { toast('View-only access', true); return; }
+  var db = await _openSchedDB();
+  var ev = await new Promise(function(resolve) {
+    var tx  = db.transaction('events', 'readonly');
+    var req = tx.objectStore('events').get(id);
+    req.onsuccess = function() { resolve(req.result); };
+  });
+  if (!ev) return;
+  document.getElementById('sched-modal-title').textContent = 'Edit Event';
+  document.getElementById('ev-id').value          = id;
+  document.getElementById('ev-date').value        = ev.date        || '';
+  document.getElementById('ev-time').value        = ev.time        || '';
+  document.getElementById('ev-end-time').value    = ev.end_time    || '';
+  document.getElementById('ev-type').value        = ev.type        || 'meeting';
+  document.getElementById('ev-title').value       = ev.title       || '';
+  document.getElementById('ev-location').value    = ev.location    || '';
+  document.getElementById('ev-desc').value        = ev.description || '';
+  document.getElementById('ev-attendees').value   = ev.attendees   || '';
+  document.getElementById('ev-delete-btn').style.display = 'inline-flex';
+  window._schedSaveCallback = ovLoadSchedule;
+  document.getElementById('sched-modal').classList.add('open');
+}
+
+/* ── Delete event from overview ──────────────────────────── */
+async function ovDeleteEvent(id) {
+  if (!confirm('Delete this event?')) return;
+  var db = await _openSchedDB();
+  await new Promise(function(resolve) {
+    var tx = db.transaction('events', 'readwrite');
+    tx.objectStore('events').delete(id).onsuccess = resolve;
+  });
+  toast('Event deleted');
+  ovLoadSchedule();
 }
 
 function _renderAlerts(apps) {
@@ -1545,10 +1832,7 @@ async function saveEdit() {
 
     // 4. Reload overview stats (don't reload allApps — we already updated locally)
     const statsData = await api('get_stats');
-    document.getElementById('s-total').textContent    = statsData.total    || 0;
-    document.getElementById('s-resolved').textContent = statsData.resolved || 0;
-    document.getElementById('s-open').textContent     = statsData.open     || 0;
-    document.getElementById('s-urgent').textContent   = (statsData.by_priority && statsData.by_priority['Urgent']) || 0;
+    _updateStatCards(statsData);
     _renderAlerts(_allApps);
 
   } catch(e) {
@@ -1959,6 +2243,31 @@ document.addEventListener('DOMContentLoaded', function() {
   }, 1500);
 });
 
+/* ── STAT CARD UPDATE HELPER ───────────────────────────────── */
+function _updateStatCards(data) {
+  var bs = data.by_status   || {};
+  var bp = data.by_priority || {};
+  // Use explicit fields if available (new backend), fall back to by_status
+  var resolved   = data.resolved    !== undefined ? data.resolved    : (bs['Resolved']   || 0);
+  var open       = data.open        !== undefined ? data.open        : (bs['Open']       || 0);
+  var inProgress = data.in_progress !== undefined ? data.in_progress : (bs['In Progress']|| 0);
+  var escalated  = data.escalated   !== undefined ? data.escalated   : (bs['Escalated']  || 0);
+  var urgent     = data.urgent      !== undefined ? data.urgent      : (bp['Urgent']     || 0);
+  var total      = data.total       || 0;
+
+  document.getElementById('s-total').textContent      = total;
+  document.getElementById('s-open').textContent       = open;
+  document.getElementById('s-inprogress').textContent = inProgress;
+  document.getElementById('s-resolved').textContent   = resolved;
+  document.getElementById('s-escalated').textContent  = escalated;
+  document.getElementById('s-urgent').textContent     = urgent;
+
+  // Also update status chart legend if visible
+  if (typeof _renderStatusChart === 'function' && data.by_status) {
+    _renderStatusChart(data.by_status);
+  }
+}
+
 /* ── STAT CARD NAVIGATION ──────────────────────────────────── */
 function filterAndNav(status) {
   // Switch to applications page
@@ -2035,3 +2344,226 @@ function _esc(s) {
   <script src="https://apis.google.com/js/api.js" async defer></script>
 </body>
 </html>
+<script>
+/* ═══════════════════════════════════════════════════════════
+   DAILY SCHEDULE MODULE
+   - In-browser IndexedDB storage (no extra Apps Script needed)
+   - Admin/data_entry: add, edit, delete events
+   - Viewer: read-only view
+   ═══════════════════════════════════════════════════════ */
+
+const SCHED_DB   = 'kochi_schedule';
+const SCHED_STORE= 'events';
+const TYPE_COLORS= {
+  meeting:  '#185FA5', visit: '#3B6D11', assembly: '#534AB7',
+  office:   '#BA7517', personal: '#888780', other: '#888780',
+};
+
+/* ── Open schedule IndexedDB ─────────────────────────────── */
+function _openSchedDB() {
+  return new Promise(function(resolve, reject) {
+    var req = indexedDB.open(SCHED_DB, 1);
+    req.onupgradeneeded = function(e) {
+      var db    = e.target.result;
+      var store = db.createObjectStore(SCHED_STORE, { keyPath:'id', autoIncrement:true });
+      store.createIndex('date', 'date');
+    };
+    req.onsuccess = function(e) { resolve(e.target.result); };
+    req.onerror   = function(e) { reject(e.target.error); };
+  });
+}
+
+/* ── Initialise schedule page ────────────────────────────── */
+function initSchedule() {
+  // Set date picker to today if empty
+  var dp = document.getElementById('sched-date');
+  if (!dp.value) {
+    dp.value = new Date().toISOString().slice(0, 10);
+  }
+  loadSchedule();
+}
+
+/* ── Load events for selected date ──────────────────────── */
+async function loadSchedule() {
+  var date = document.getElementById('sched-date').value;
+  if (!date) { toast('Please select a date', true); return; }
+
+  var db = await _openSchedDB();
+  var events = await new Promise(function(resolve) {
+    var tx    = db.transaction(SCHED_STORE, 'readonly');
+    var idx   = tx.objectStore(SCHED_STORE).index('date');
+    var req   = idx.getAll(date);
+    req.onsuccess = function() { resolve(req.result); };
+  });
+
+  // Sort by time
+  events.sort(function(a, b) { return (a.time || '').localeCompare(b.time || ''); });
+
+  var list  = document.getElementById('sched-list');
+  var empty = document.getElementById('sched-empty');
+  var caps  = ROLE_CAPS[_userRole] || ROLE_CAPS.viewer;
+
+  if (!events.length) {
+    list.innerHTML  = '';
+    empty.style.display = 'block';
+    return;
+  }
+  empty.style.display = 'none';
+
+  list.innerHTML = events.map(function(ev) {
+    var color   = TYPE_COLORS[ev.type] || '#888780';
+    var typeCls = 'type-' + (ev.type || 'other');
+    var endHtml = ev.end_time ? '<div class="sched-end">' + ev.end_time + '</div>' : '';
+    var locHtml = ev.location
+      ? '<span><i class="ti ti-map-pin"></i> ' + _esc(ev.location) + '</span>' : '';
+    var attHtml = ev.attendees
+      ? '<span><i class="ti ti-users"></i> ' + _esc(ev.attendees) + '</span>' : '';
+    var descHtml = ev.description
+      ? '<div style="font-size:11px;color:var(--text2);margin-top:6px;line-height:1.5">' + _esc(ev.description) + '</div>' : '';
+    var editBtn = caps.canWrite
+      ? '<button class="btn btn-sm" onclick="openEditEvent(' + ev.id + ')" style="font-size:10px"><i class="ti ti-pencil"></i>Edit</button>' : '';
+
+    return '<div class="sched-event">'
+      + '<div class="sched-time-col">'
+      +   '<div class="sched-time">' + (ev.time || '--:--') + '</div>'
+      +   endHtml
+      + '</div>'
+      + '<div class="sched-bar" style="background:' + color + '"></div>'
+      + '<div class="sched-body">'
+      +   '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px">'
+      +     '<span class="sched-type-badge ' + typeCls + '">' + (ev.type || 'other') + '</span>'
+      +     '<div class="sched-title">' + _esc(ev.title || 'Untitled') + '</div>'
+      +   '</div>'
+      +   '<div class="sched-meta">' + locHtml + attHtml + '</div>'
+      +   descHtml
+      +   (caps.canWrite ? '<div class="sched-actions">' + editBtn + '</div>' : '')
+      + '</div>'
+      + '</div>';
+  }).join('');
+}
+
+/* ── Open add event modal ────────────────────────────────── */
+function openAddEvent() {
+  var caps = ROLE_CAPS[_userRole] || ROLE_CAPS.viewer;
+  if (!caps.canWrite) { toast('View-only access — cannot add events', true); return; }
+
+  document.getElementById('sched-modal-title').textContent = 'Add Event';
+  document.getElementById('ev-id').value          = '';
+  document.getElementById('ev-date').value        = document.getElementById('sched-date').value || new Date().toISOString().slice(0,10);
+  document.getElementById('ev-time').value        = '';
+  document.getElementById('ev-end-time').value    = '';
+  document.getElementById('ev-type').value        = 'meeting';
+  document.getElementById('ev-title').value       = '';
+  document.getElementById('ev-location').value    = '';
+  document.getElementById('ev-desc').value        = '';
+  document.getElementById('ev-attendees').value   = '';
+  document.getElementById('ev-delete-btn').style.display = 'none';
+  document.getElementById('sched-modal').classList.add('open');
+}
+
+/* ── Open edit event modal ───────────────────────────────── */
+async function openEditEvent(id) {
+  var caps = ROLE_CAPS[_userRole] || ROLE_CAPS.viewer;
+  if (!caps.canWrite) { toast('View-only access', true); return; }
+
+  var db = await _openSchedDB();
+  var ev = await new Promise(function(resolve) {
+    var tx  = db.transaction(SCHED_STORE, 'readonly');
+    var req = tx.objectStore(SCHED_STORE).get(id);
+    req.onsuccess = function() { resolve(req.result); };
+  });
+  if (!ev) return;
+
+  document.getElementById('sched-modal-title').textContent = 'Edit Event';
+  document.getElementById('ev-id').value          = id;
+  document.getElementById('ev-date').value        = ev.date        || '';
+  document.getElementById('ev-time').value        = ev.time        || '';
+  document.getElementById('ev-end-time').value    = ev.end_time    || '';
+  document.getElementById('ev-type').value        = ev.type        || 'meeting';
+  document.getElementById('ev-title').value       = ev.title       || '';
+  document.getElementById('ev-location').value    = ev.location    || '';
+  document.getElementById('ev-desc').value        = ev.description || '';
+  document.getElementById('ev-attendees').value   = ev.attendees   || '';
+  document.getElementById('ev-delete-btn').style.display = 'inline-flex';
+  document.getElementById('sched-modal').classList.add('open');
+}
+
+/* ── Save event (add or edit) ────────────────────────────── */
+async function saveEvent() {
+  var title = document.getElementById('ev-title').value.trim();
+  var date  = document.getElementById('ev-date').value;
+  var time  = document.getElementById('ev-time').value;
+  if (!title) { toast('Title is required', true); return; }
+  if (!date)  { toast('Date is required',  true); return; }
+
+  var ev = {
+    date:        date,
+    time:        time,
+    end_time:    document.getElementById('ev-end-time').value,
+    type:        document.getElementById('ev-type').value,
+    title:       title,
+    location:    document.getElementById('ev-location').value.trim(),
+    description: document.getElementById('ev-desc').value.trim(),
+    attendees:   document.getElementById('ev-attendees').value.trim(),
+    added_by:    _fbUser ? _fbUser.email : 'unknown',
+    updated_at:  new Date().toISOString(),
+  };
+
+  var existingId = document.getElementById('ev-id').value;
+  var db = await _openSchedDB();
+
+  await new Promise(function(resolve, reject) {
+    var tx    = db.transaction(SCHED_STORE, 'readwrite');
+    var store = tx.objectStore(SCHED_STORE);
+    var req;
+    if (existingId) {
+      ev.id = parseInt(existingId);
+      req   = store.put(ev);
+    } else {
+      req = store.add(ev);
+    }
+    req.onsuccess = resolve;
+    req.onerror   = function(e) { reject(e.target.error); };
+  });
+
+  toast(existingId ? 'Event updated' : 'Event added');
+  closeSchedModal();
+
+  // Refresh whichever schedule view triggered this save
+  if (window._schedSaveCallback) {
+    window._schedSaveCallback();
+    window._schedSaveCallback = null;
+  } else {
+    // Reload full schedule page if on that page
+    var currentDate = document.getElementById('sched-date') && document.getElementById('sched-date').value;
+    if (currentDate === date) loadSchedule();
+  }
+}
+
+/* ── Delete event ────────────────────────────────────────── */
+async function deleteEvent() {
+  var id = parseInt(document.getElementById('ev-id').value);
+  if (!id) return;
+  if (!confirm('Delete this event? This cannot be undone.')) return;
+
+  var db = await _openSchedDB();
+  await new Promise(function(resolve) {
+    var tx = db.transaction(SCHED_STORE, 'readwrite');
+    tx.objectStore(SCHED_STORE).delete(id).onsuccess = resolve;
+  });
+
+  toast('Event deleted');
+  closeSchedModal();
+  if (window._schedSaveCallback) {
+    window._schedSaveCallback();
+    window._schedSaveCallback = null;
+  } else {
+    loadSchedule();
+  }
+}
+
+/* ── Close schedule modal ────────────────────────────────── */
+function closeSchedModal() {
+  document.getElementById('sched-modal').classList.remove('open');
+}
+</script>
